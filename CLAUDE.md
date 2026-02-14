@@ -9,7 +9,7 @@ Clean Python-based Azure APIM deployment tool that reads the APIOps git-extracte
 ## Project Structure
 
 ```
-claude-apiops/
+apy-ops/
 ├── deploy.py              # CLI entry point: plan, apply, init, extract
 ├── apim_client.py         # Azure REST API client (auth + HTTP)
 ├── artifact_reader.py     # Reads APIOps directory, resolves $ref-*, computes hashes

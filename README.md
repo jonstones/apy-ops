@@ -1,4 +1,4 @@
-# claude-apiops
+# apy-ops
 
 A Python-based Azure API Management deployment tool that uses a **Terraform-style plan & apply** workflow. Reads the [APIOps](https://github.com/Azure/apiops) git-extracted format and deploys artifacts via Azure REST API, using an external state file to track deployments and produce minimal diffs.
 
