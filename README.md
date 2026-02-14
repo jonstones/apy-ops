@@ -23,33 +23,41 @@ pip install -e ".[dev]"
 
 ### 1. Initialize state
 
-State tracks what was last deployed. Choose a backend:
+State tracks what was last deployed. All parameters are optional at init — APIM connection details can be provided later via flags or env vars.
 
 ```bash
-# Local file (for dev/testing)
-apy-ops init \
-  --backend local \
-  --state-file ~/.apim-state/myproject/apim-state.json \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
+# Minimal — creates .apim-state.json in current directory
+apy-ops init
 
-# Azure Blob Storage (for pipelines/teams)
-apy-ops init \
-  --backend azure \
+# With APIM details (stored in state for later use by apply/extract)
+apy-ops init --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
+
+# Custom state file location
+apy-ops init --state-file ~/.apim-state/myproject/apim-state.json
+
+# Azure Blob Storage backend (for pipelines/teams)
+apy-ops init --backend azure \
   --backend-storage-account <SA> \
   --backend-container apim-state \
-  --backend-blob myproject/apim-state.json \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
+  --backend-blob myproject/apim-state.json
 ```
 
 ### 2. Plan
 
-Compare your local APIOps files against the state file to see what would change. No calls are made to APIM.
+Compare local APIOps files against the state file. Entirely offline — no APIM connection needed.
 
 ```bash
-apy-ops plan \
-  --source-dir ./api-management \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
+# Minimal — reads from current dir, uses .apim-state.json
+apy-ops plan
+
+# Explicit source directory
+apy-ops plan --source-dir ./api-management
+
+# Save plan for later
+apy-ops plan --out plan.json
+
+# Show unchanged artifacts too
+apy-ops plan -v
 ```
 
 Output:
@@ -61,67 +69,66 @@ Plan: 2 to create, 1 to update, 0 to delete, 5 unchanged.
   ~ product      "Starter"           (changed: subscriptionsLimit 1→5)
 ```
 
-Save a plan for later:
-```bash
-apy-ops plan ... --out plan.json
-```
-
 ### 3. Apply
 
-Push changes to APIM. You'll be prompted to confirm.
+Push changes to APIM. Requires APIM connection details (from flags, env vars, or state file).
 
 ```bash
-apy-ops apply \
-  --source-dir ./api-management \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
-```
+# If APIM details were set during init or via env vars
+apy-ops apply
 
-Apply a saved plan:
-```bash
-apy-ops apply --plan plan.json \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
-```
+# With explicit APIM target
+apy-ops apply --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
 
-Skip the confirmation prompt (for CI/CD):
-```bash
-apy-ops apply --auto-approve ...
-```
+# Apply a saved plan
+apy-ops apply --plan plan.json
 
-Force-push all artifacts, ignoring state (useful when APIM was changed manually):
-```bash
-apy-ops apply --force ...
+# Skip confirmation (for CI/CD)
+apy-ops apply --auto-approve
+
+# Force-push all artifacts, ignoring state
+apy-ops apply --force
 ```
 
 ### 4. Extract
 
-Pull all artifacts from a live APIM instance into APIOps-format files:
+Pull all artifacts from a live APIM instance into APIOps-format files.
 
 ```bash
-apy-ops extract \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
-  --output-dir ./api-management
+# Minimal — writes to ./api-management, resolves APIM target from state/env
+apy-ops extract
+
+# Explicit options
+apy-ops extract --output-dir ./my-apis \
+  --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
+
+# Sync state file so subsequent plan shows no changes
+apy-ops extract --update-state
 ```
 
-Extract and sync the state file so a subsequent `plan` shows no changes:
-```bash
-apy-ops extract --update-state \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json \
-  --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
-  --output-dir ./api-management
-```
+## Defaults
+
+Most parameters have sensible defaults so you can run commands with minimal flags:
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `--backend` | `local` | |
+| `--state-file` | `.apim-state.json` | Current directory |
+| `--source-dir` | `.` | Current directory |
+| `--output-dir` | `./api-management` | For extract |
+| `--subscription-id` | from state file | Fallback: `APIM_SUBSCRIPTION_ID` env var |
+| `--resource-group` | from state file | Fallback: `APIM_RESOURCE_GROUP` env var |
+| `--service-name` | from state file | Fallback: `APIM_SERVICE_NAME` env var |
+
+APIM connection details are resolved in order: CLI flag → environment variable → state file. They are only required for commands that talk to APIM (`apply`, `extract`). `plan` is entirely offline.
 
 ## Authentication
 
 By default, uses `DefaultAzureCredential` (works with `az login`, managed identity, etc.).
 
-For service principal auth, pass credentials explicitly:
+For service principal auth:
 ```bash
-apy-ops plan ... \
-  --client-id <CLIENT_ID> \
-  --client-secret <CLIENT_SECRET> \
-  --tenant-id <TENANT_ID>
+apy-ops apply --client-id <CLIENT_ID> --client-secret <CLIENT_SECRET> --tenant-id <TENANT_ID>
 ```
 
 ## Filtering
@@ -129,16 +136,17 @@ apy-ops plan ... \
 Deploy or extract only specific artifact types:
 
 ```bash
-apy-ops plan --only apis ...
-apy-ops extract --only apis,products ...
+apy-ops plan --only apis
+apy-ops extract --only apis,products
 ```
 
 ## Environment Variables
 
-State backend settings can be set via environment variables instead of CLI flags:
-
 | Variable | Equivalent flag |
-|----------|----------------|
+|---|---|
+| `APIM_SUBSCRIPTION_ID` | `--subscription-id` |
+| `APIM_RESOURCE_GROUP` | `--resource-group` |
+| `APIM_SERVICE_NAME` | `--service-name` |
 | `APIM_STATE_BACKEND` | `--backend` |
 | `APIM_STATE_FILE` | `--state-file` |
 | `APIM_STATE_STORAGE_ACCOUNT` | `--backend-storage-account` |
@@ -149,7 +157,7 @@ State backend settings can be set via environment variables instead of CLI flags
 
 **Stuck lock**: If a previous run crashed and left the state locked:
 ```bash
-apy-ops force-unlock --backend local --state-file ~/.apim-state/myproject/apim-state.json
+apy-ops force-unlock
 ```
 
 **State drift**: If someone made manual changes on APIM, use `--force` to push all local artifacts and rebuild state from scratch.

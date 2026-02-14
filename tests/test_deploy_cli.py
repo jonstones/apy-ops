@@ -77,3 +77,27 @@ class TestHelp:
         rc, out, err = run_cli("plan", "--help")
         assert rc == 0
         assert "--source-dir" in out
+
+    def test_apply_help_shows_source_dir_default(self):
+        rc, out, err = run_cli("apply", "--help")
+        assert rc == 0
+        assert "--source-dir" in out
+        assert "default" in out
+        assert "." in out
+
+
+class TestApplySourceDirDefault:
+    """Test that apply uses default source-dir when not provided."""
+
+    def test_apply_parser_has_source_dir_default(self):
+        from apy_ops.cli import DEFAULT_SOURCE_DIR
+        import argparse
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers(dest="command", required=True)
+        p_apply = subparsers.add_parser("apply")
+        p_apply.add_argument("--backend", choices=["local", "azure"])
+        p_apply.add_argument("--state-file", default=".apim-state.json")
+        p_apply.add_argument("--source-dir", default=DEFAULT_SOURCE_DIR)
+        p_apply.add_argument("--plan")
+        args = parser.parse_args(["apply"])
+        assert args.source_dir == DEFAULT_SOURCE_DIR

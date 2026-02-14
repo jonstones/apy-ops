@@ -167,10 +167,24 @@ def get_backend(args):
     backend_type = getattr(args, "backend", None) or os.environ.get("APIM_STATE_BACKEND", "local")
 
     if backend_type == "azure":
+        storage_account = getattr(args, "backend_storage_account", None) or os.environ.get("APIM_STATE_STORAGE_ACCOUNT")
+        container = getattr(args, "backend_container", None) or os.environ.get("APIM_STATE_CONTAINER")
+        blob_path = getattr(args, "backend_blob", None) or os.environ.get("APIM_STATE_BLOB")
+        missing = []
+        if not storage_account:
+            missing.append("--backend-storage-account or APIM_STATE_STORAGE_ACCOUNT")
+        if not container:
+            missing.append("--backend-container or APIM_STATE_CONTAINER")
+        if not blob_path:
+            missing.append("--backend-blob or APIM_STATE_BLOB")
+        if missing:
+            raise ValueError(
+                "Azure state backend requires: " + ", ".join(missing)
+            )
         return AzureBlobStateBackend(
-            storage_account=getattr(args, "backend_storage_account", None) or os.environ.get("APIM_STATE_STORAGE_ACCOUNT"),
-            container=getattr(args, "backend_container", None) or os.environ.get("APIM_STATE_CONTAINER"),
-            blob_path=getattr(args, "backend_blob", None) or os.environ.get("APIM_STATE_BLOB"),
+            storage_account=storage_account,
+            container=container,
+            blob_path=blob_path,
             client_id=getattr(args, "client_id", None),
             client_secret=getattr(args, "client_secret", None),
             tenant_id=getattr(args, "tenant_id", None),

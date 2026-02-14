@@ -1,5 +1,6 @@
 """Named Values artifact module."""
 
+import json
 import os
 from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
@@ -52,7 +53,6 @@ def write_local(output_dir, artifacts):
         props = dict(artifact["properties"])
         props["id"] = f"/namedValues/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
-        import json
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
             f.write("\n")

@@ -26,6 +26,27 @@ class TestNamedValues:
         from apy_ops.artifacts.named_values import read_local
         assert read_local(str(tmp_path)) == {}
 
+    def test_write_local_produces_valid_json(self, tmp_path):
+        from apy_ops.artifacts.named_values import read_local, write_local
+        nv_dir = tmp_path / "source" / "namedValues"
+        nv_dir.mkdir(parents=True)
+        (nv_dir / "my-key.json").write_text(json.dumps({
+            "id": "/namedValues/my-key",
+            "displayName": "my-key",
+            "value": "hello",
+        }))
+        artifacts = read_local(str(tmp_path / "source"))
+        out_dir = tmp_path / "out"
+        out_dir.mkdir()
+        write_local(str(out_dir), artifacts)
+        path = out_dir / "namedValues" / "my-key.json"
+        assert path.is_file()
+        with open(path) as f:
+            data = json.load(f)
+        assert data["displayName"] == "my-key"
+        assert data["value"] == "hello"
+        assert data["id"] == "/namedValues/my-key"
+
 
 class TestTags:
     def test_read_local(self, tmp_path):

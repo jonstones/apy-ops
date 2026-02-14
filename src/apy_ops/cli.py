@@ -139,12 +139,13 @@ def cmd_apply(args):
             backend.lock()
             try:
                 state = backend.read()
-                success, total, errors = apply_force(
-                    source_dir, client, backend, state, only=only,
+                success, total, error = apply_plan(
+                    None, client, backend, state,
+                    force=True, source_dir=source_dir, only=only,
                 )
             finally:
                 backend.unlock()
-            sys.exit(1 if errors else 0)
+            sys.exit(1 if error else 0)
 
         plan = generate_plan(source_dir, state, only=only)
 
@@ -250,7 +251,7 @@ def main():
     p_apply = subparsers.add_parser("apply", help="Apply changes to APIM")
     add_common_args(p_apply)
     add_apim_args(p_apply, required=False)
-    p_apply.add_argument("--source-dir",
+    p_apply.add_argument("--source-dir", default=DEFAULT_SOURCE_DIR,
                          help=f"Path to APIOps directory (default: {DEFAULT_SOURCE_DIR})")
     p_apply.add_argument("--plan", help="Path to saved plan file")
     p_apply.add_argument("--force", action="store_true",

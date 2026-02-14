@@ -13,19 +13,25 @@ CHECK = "\u2713"
 CROSS = "\u2717"
 
 
-def apply_plan(plan, client, backend, state, force=False):
+def apply_plan(plan, client, backend, state, force=False, source_dir=None, only=None):
     """Execute all changes in the plan.
 
     Args:
-        plan: Plan dict from planner.generate_plan()
+        plan: Plan dict from planner.generate_plan() (ignored when force=True)
         client: ApimClient instance
         backend: State backend instance
         state: Current state dict
-        force: If True, push all artifacts regardless of diff
+        force: If True, push all artifacts regardless of diff (uses source_dir, only)
+        source_dir: Path to APIOps directory (required when force=True)
+        only: Optional list of artifact type names to include (when force=True)
 
     Returns:
         (success_count, total_count, error_message or None)
     """
+    if force:
+        success, total, errors = apply_force(source_dir, client, backend, state, only=only)
+        return (success, total, "; ".join(errors) if errors else None)
+
     changes = [c for c in plan["changes"] if c["action"] in (CREATE, UPDATE, DELETE)]
     if not changes:
         print("\nNo changes to apply.\n")

@@ -42,55 +42,46 @@ pip install -e ".[dev]"
 # Run tests
 pytest tests/ -v
 
-# Initialize empty state
-apy-ops init \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
-# or
-apy-ops init \
-  --backend azure --backend-storage-account SA --backend-container apim-state --backend-blob myproject/apim-state.json
+# Initialize state (creates .apim-state.json in current dir)
+apy-ops init
+apy-ops init --subscription-id SUB --resource-group RG --service-name APIM
 
-# Plan: diff local artifacts against state file, show delta
-apy-ops plan \
-  --source-dir /path/to/api-management \
-  --subscription-id SUB --resource-group RG --service-name APIM \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
+# Plan: diff local artifacts against state (entirely offline, no APIM connection)
+apy-ops plan                              # reads from . and .apim-state.json
+apy-ops plan --source-dir /path/to/apis   # explicit source
+apy-ops plan --out plan.json              # save plan
 
-# Plan with saved output
-apy-ops plan ... --out plan.json
+# Apply: push changes to APIM (resolves APIM target from flags/env/state)
+apy-ops apply
+apy-ops apply --plan plan.json            # apply a saved plan
+apy-ops apply --force                     # bypass state, push everything
+apy-ops apply --auto-approve              # skip confirmation (CI/CD)
 
-# Apply: execute changes, update state
-apy-ops apply \
-  --source-dir /path/to/api-management \
-  --subscription-id SUB --resource-group RG --service-name APIM \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
+# Extract: pull artifacts from live APIM into APIOps files
+apy-ops extract                           # writes to ./api-management
+apy-ops extract --update-state            # also sync state file
 
-# Apply a saved plan
-apy-ops apply --plan plan.json ...
-
-# Force: bypass state diff, push ALL artifacts, rebuild state
-apy-ops apply --force ...
-
-# Auto-approve (skip confirmation, for CI/CD pipelines)
-apy-ops apply --auto-approve ...
-
-# Deploy specific artifact type only
-apy-ops plan --only apis ...
-
-# Extract: pull all artifacts from live APIM into APIOps-format files
-apy-ops extract \
-  --subscription-id SUB --resource-group RG --service-name APIM \
-  --output-dir ./api-management
-
-# Extract specific types only
-apy-ops extract ... --only apis,products,policies
-
-# Extract and populate state file (so subsequent plan shows no changes)
-apy-ops extract ... --update-state \
-  --backend local --state-file ~/.apim-state/myproject/apim-state.json
+# Filter by artifact type
+apy-ops plan --only apis
+apy-ops extract --only apis,products
 
 # Service principal auth
-apy-ops plan ... --client-id CID --client-secret SEC --tenant-id TID
+apy-ops apply --client-id CID --client-secret SEC --tenant-id TID
 ```
+
+### CLI Defaults
+
+| Parameter | Default | Notes |
+|---|---|---|
+| `--backend` | `local` | |
+| `--state-file` | `.apim-state.json` | Current directory |
+| `--source-dir` | `.` | Current directory |
+| `--output-dir` | `./api-management` | For extract |
+| `--subscription-id` | from state file | Fallback: `APIM_SUBSCRIPTION_ID` env var |
+| `--resource-group` | from state file | Fallback: `APIM_RESOURCE_GROUP` env var |
+| `--service-name` | from state file | Fallback: `APIM_SERVICE_NAME` env var |
+
+APIM connection details resolve: CLI flag → env var → state file. Only required for `apply` and `extract`. `plan` is entirely offline.
 
 ## Architecture
 

@@ -1,9 +1,12 @@
-"""Tests for state module (LocalStateBackend)."""
+"""Tests for state module (LocalStateBackend, get_backend)."""
 
 import json
 import os
+from types import SimpleNamespace
+
 import pytest
-from apy_ops.state import LocalStateBackend, STATE_VERSION
+
+from apy_ops.state import LocalStateBackend, get_backend, STATE_VERSION
 
 
 class TestLocalStateBackend:
@@ -80,3 +83,53 @@ class TestLocalStateBackend:
         # Can lock again after force unlock
         backend.lock()
         backend.unlock()
+
+
+class TestGetBackendAzureValidation:
+    """Test that get_backend(backend=azure) requires storage params."""
+
+    def test_azure_backend_raises_when_params_missing(self, monkeypatch):
+        monkeypatch.delenv("APIM_STATE_STORAGE_ACCOUNT", raising=False)
+        monkeypatch.delenv("APIM_STATE_CONTAINER", raising=False)
+        monkeypatch.delenv("APIM_STATE_BLOB", raising=False)
+        args = SimpleNamespace(
+            backend="azure",
+            backend_storage_account=None,
+            backend_container=None,
+            backend_blob=None,
+            client_id=None,
+            client_secret=None,
+            tenant_id=None,
+        )
+        with pytest.raises(ValueError, match="Azure state backend requires"):
+            get_backend(args)
+
+    def test_azure_backend_raises_lists_missing_params(self, monkeypatch):
+        monkeypatch.delenv("APIM_STATE_STORAGE_ACCOUNT", raising=False)
+        monkeypatch.delenv("APIM_STATE_CONTAINER", raising=False)
+        monkeypatch.delenv("APIM_STATE_BLOB", raising=False)
+        args = SimpleNamespace(
+            backend="azure",
+            backend_storage_account=None,
+            backend_container=None,
+            backend_blob=None,
+            client_id=None,
+            client_secret=None,
+            tenant_id=None,
+        )
+        with pytest.raises(ValueError) as exc_info:
+            get_backend(args)
+        msg = str(exc_info.value)
+        assert "backend-storage-account" in msg or "APIM_STATE_STORAGE_ACCOUNT" in msg
+        assert "backend-container" in msg or "APIM_STATE_CONTAINER" in msg
+        assert "backend-blob" in msg or "APIM_STATE_BLOB" in msg
+
+    def test_local_backend_unchanged(self, tmp_path):
+        state_file = str(tmp_path / "state.json")
+        args = SimpleNamespace(
+            backend="local",
+            state_file=state_file,
+        )
+        backend = get_backend(args)
+        assert isinstance(backend, LocalStateBackend)
+        assert backend.state_file == state_file
