@@ -1,0 +1,228 @@
+"""APIs artifact module — atomic unit (API + spec + operations)."""
+
+import json
+import os
+import yaml
+from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+
+ARTIFACT_TYPE = "api"
+SOURCE_SUBDIR = "apis"
+
+# OpenAPI format mapping for the REST API 'format' field
+SPEC_FORMAT_MAP = {
+    ("json", 2): "swagger-json",
+    ("json", 3): "openapi+json",
+    ("yaml", 2): "swagger-link-json",
+    ("yaml", 3): "openapi",
+}
+
+
+def _detect_spec_format(spec_path):
+    """Detect the spec file type and OpenAPI version, return (format_str, content)."""
+    ext = os.path.splitext(spec_path)[1].lower()
+    with open(spec_path, "r") as f:
+        content = f.read()
+
+    if ext == ".wsdl":
+        return "wsdl", content
+    if ext == ".wadl":
+        return "wadl", content
+    if ext == ".graphql":
+        return "graphql", content
+
+    # Detect OpenAPI/Swagger version
+    if ext in (".yaml", ".yml"):
+        try:
+            parsed = yaml.safe_load(content)
+        except Exception:
+            return "openapi", content
+        version = 3
+        if parsed and (parsed.get("swagger") or "").startswith("2"):
+            version = 2
+        return SPEC_FORMAT_MAP.get(("yaml", version), "openapi"), content
+    else:
+        # JSON
+        try:
+            parsed = json.loads(content)
+        except Exception:
+            return "openapi+json", content
+        version = 3
+        if parsed and (parsed.get("swagger") or "").startswith("2"):
+            version = 2
+        return SPEC_FORMAT_MAP.get(("json", version), "openapi+json"), content
+
+
+def _find_spec_file(api_dir):
+    """Find the specification file in an API directory."""
+    for name in ["specification.json", "specification.yaml", "specification.yml",
+                  "specification.wsdl", "specification.wadl", "specification.graphql"]:
+        path = os.path.join(api_dir, name)
+        if os.path.isfile(path):
+            return path
+    return None
+
+
+def _read_operations(api_dir):
+    """Read operations from separate files in the API directory."""
+    ops = {}
+    for entry in sorted(os.listdir(api_dir)):
+        if not entry.endswith(".json"):
+            continue
+        if entry in ("apiInformation.json", "configuration.json"):
+            continue
+        if entry.startswith("specification."):
+            continue
+        path = os.path.join(api_dir, entry)
+        if not os.path.isfile(path):
+            continue
+        op_props = read_json(path)
+        op_props = resolve_refs(op_props, api_dir)
+        op_id = extract_id_from_path(op_props.get("id", entry.replace(".json", "")))
+        ops[op_id] = op_props
+    return ops
+
+
+def read_local(source_dir):
+    base = os.path.join(source_dir, SOURCE_SUBDIR)
+    if not os.path.isdir(base):
+        return {}
+    artifacts = {}
+    for entry in sorted(os.listdir(base)):
+        api_dir = os.path.join(base, entry)
+        if not os.path.isdir(api_dir):
+            continue
+
+        # Read API info (new format: apiInformation.json, old: configuration.json)
+        info_path = os.path.join(api_dir, "apiInformation.json")
+        if not os.path.isfile(info_path):
+            info_path = os.path.join(api_dir, "configuration.json")
+        if not os.path.isfile(info_path):
+            continue
+
+        props = read_json(info_path)
+        props = resolve_refs(props, api_dir)
+        api_id = extract_id_from_path(props.get("id", entry))
+
+        # Read spec file
+        spec_path = _find_spec_file(api_dir)
+        spec_data = None
+        if spec_path:
+            fmt, content = _detect_spec_format(spec_path)
+            spec_data = {"format": fmt, "content": content, "path": os.path.basename(spec_path)}
+
+        # Read operations (from separate files, not inline in configuration.json)
+        operations = _read_operations(api_dir)
+
+        # Build composite properties for hashing (atomic unit)
+        composite = {
+            "apiInfo": props,
+            "spec": spec_data,
+            "operations": operations,
+        }
+
+        key = f"{ARTIFACT_TYPE}:{api_id}"
+        artifacts[key] = {
+            "type": ARTIFACT_TYPE,
+            "id": api_id,
+            "hash": compute_hash(composite),
+            "properties": props,
+            "spec": spec_data,
+            "operations": operations,
+        }
+    return artifacts
+
+
+def read_live(client):
+    items = client.list("/apis")
+    artifacts = {}
+    for item in items:
+        api_id = item["name"]
+        props = item.get("properties", {})
+
+        # Fetch operations for this API
+        operations = {}
+        try:
+            ops = client.list(f"/apis/{api_id}/operations")
+            for op in ops:
+                op_id = op["name"]
+                operations[op_id] = op.get("properties", {})
+        except Exception:
+            pass
+
+        composite = {
+            "apiInfo": props,
+            "spec": None,
+            "operations": operations,
+        }
+
+        key = f"{ARTIFACT_TYPE}:{api_id}"
+        artifacts[key] = {
+            "type": ARTIFACT_TYPE,
+            "id": api_id,
+            "hash": compute_hash(composite),
+            "properties": props,
+            "spec": None,
+            "operations": operations,
+        }
+    return artifacts
+
+
+def write_local(output_dir, artifacts):
+    base = os.path.join(output_dir, SOURCE_SUBDIR)
+    os.makedirs(base, exist_ok=True)
+    for artifact in artifacts.values():
+        api_id = artifact["id"]
+        display = artifact["properties"].get("displayName", api_id)
+        dir_name = f"{display}_{api_id}" if display != api_id else api_id
+        # Sanitize directory name
+        dir_name = dir_name.replace("/", "_").replace("\\", "_")
+        api_dir = os.path.join(base, dir_name)
+        os.makedirs(api_dir, exist_ok=True)
+
+        # Write apiInformation.json
+        props = dict(artifact["properties"])
+        props["id"] = f"/apis/{api_id}"
+        info_path = os.path.join(api_dir, "apiInformation.json")
+        with open(info_path, "w") as f:
+            json.dump(props, f, indent=2)
+            f.write("\n")
+
+        # Write operations
+        for op_id, op_props in artifact.get("operations", {}).items():
+            op_props_out = dict(op_props)
+            op_props_out["id"] = f"/apis/{api_id}/operations/{op_id}"
+            op_path = os.path.join(api_dir, f"{op_id}.json")
+            with open(op_path, "w") as f:
+                json.dump(op_props_out, f, indent=2)
+                f.write("\n")
+
+
+def to_rest_payload(artifact):
+    """Build the PUT body for the API resource.
+
+    If a spec file is present, include it as an import payload.
+    """
+    props = dict(artifact["properties"])
+    props.pop("id", None)
+    payload = {"properties": props}
+
+    spec = artifact.get("spec")
+    if spec:
+        payload["properties"]["format"] = spec["format"]
+        payload["properties"]["value"] = spec["content"]
+
+    return payload
+
+
+def to_operation_payloads(artifact):
+    """Return list of (op_id, payload) for each operation to PUT."""
+    results = []
+    for op_id, op_props in artifact.get("operations", {}).items():
+        props = dict(op_props)
+        props.pop("id", None)
+        results.append((op_id, {"properties": props}))
+    return results
+
+
+def resource_path(artifact_id):
+    return f"/apis/{artifact_id}"
