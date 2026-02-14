@@ -2,6 +2,7 @@
 """CLI entry point for APIM deployment tool."""
 
 import argparse
+import os
 import sys
 
 from apy_ops.apim_client import ApimClient
@@ -10,13 +11,18 @@ from apy_ops.planner import generate_plan, print_plan, save_plan, load_plan
 from apy_ops.applier import apply_plan, apply_force
 from apy_ops.extractor import extract
 
+DEFAULT_STATE_FILE = ".apim-state.json"
+DEFAULT_SOURCE_DIR = "."
+DEFAULT_OUTPUT_DIR = "./api-management"
+
 
 def add_common_args(parser):
     """Add arguments shared across subcommands."""
     # State backend
     parser.add_argument("--backend", choices=["local", "azure"],
                         help="State backend type (default: local)")
-    parser.add_argument("--state-file", help="Path to local state file")
+    parser.add_argument("--state-file", default=DEFAULT_STATE_FILE,
+                        help=f"Path to local state file (default: {DEFAULT_STATE_FILE})")
     parser.add_argument("--backend-storage-account", help="Azure storage account for state")
     parser.add_argument("--backend-container", help="Azure blob container for state")
     parser.add_argument("--backend-blob", help="Azure blob path for state")
@@ -26,11 +32,50 @@ def add_common_args(parser):
     parser.add_argument("--tenant-id", help="Azure AD tenant ID")
 
 
-def add_apim_args(parser):
+def add_apim_args(parser, required=True):
     """Add APIM target arguments."""
-    parser.add_argument("--subscription-id", required=True, help="Azure subscription ID")
-    parser.add_argument("--resource-group", required=True, help="Resource group name")
-    parser.add_argument("--service-name", required=True, help="APIM service name")
+    parser.add_argument("--subscription-id", required=required,
+                        help="Azure subscription ID (or APIM_SUBSCRIPTION_ID env var)")
+    parser.add_argument("--resource-group", required=required,
+                        help="Resource group name (or APIM_RESOURCE_GROUP env var)")
+    parser.add_argument("--service-name", required=required,
+                        help="APIM service name (or APIM_SERVICE_NAME env var)")
+
+
+def _resolve_apim_args(args, state=None):
+    """Resolve APIM connection args from flags → env vars → state file."""
+    args.subscription_id = (
+        getattr(args, "subscription_id", None)
+        or os.environ.get("APIM_SUBSCRIPTION_ID")
+        or (state.get("subscription_id") if state else None)
+    )
+    args.resource_group = (
+        getattr(args, "resource_group", None)
+        or os.environ.get("APIM_RESOURCE_GROUP")
+        or (state.get("resource_group") if state else None)
+    )
+    args.service_name = (
+        getattr(args, "service_name", None)
+        or os.environ.get("APIM_SERVICE_NAME")
+        or (state.get("apim_service") if state else None)
+    )
+
+
+def _require_apim_args(args):
+    """Error if APIM connection args are still missing."""
+    missing = []
+    if not args.subscription_id:
+        missing.append("--subscription-id")
+    if not args.resource_group:
+        missing.append("--resource-group")
+    if not args.service_name:
+        missing.append("--service-name")
+    if missing:
+        print(f"Error: {', '.join(missing)} required. "
+              "Set via flags, env vars (APIM_SUBSCRIPTION_ID, APIM_RESOURCE_GROUP, "
+              "APIM_SERVICE_NAME), or init the state file with these values.",
+              file=sys.stderr)
+        sys.exit(1)
 
 
 def cmd_init(args):
@@ -56,7 +101,8 @@ def cmd_plan(args):
         sys.exit(1)
 
     only = args.only.split(",") if args.only else None
-    plan = generate_plan(args.source_dir, state, only=only)
+    source_dir = args.source_dir or DEFAULT_SOURCE_DIR
+    plan = generate_plan(source_dir, state, only=only)
     print_plan(plan, verbose=args.verbose)
 
     if args.out:
@@ -70,6 +116,7 @@ def cmd_plan(args):
 def cmd_apply(args):
     """Apply changes to APIM."""
     backend = get_backend(args)
+    source_dir = getattr(args, "source_dir", None) or DEFAULT_SOURCE_DIR
 
     # Load saved plan if provided
     if args.plan:
@@ -80,10 +127,11 @@ def cmd_apply(args):
             print("Error: State file not found. Run 'init' first.", file=sys.stderr)
             sys.exit(1)
 
+        _resolve_apim_args(args, state)
         only = args.only.split(",") if args.only else None
 
         if args.force:
-            # Force mode: push everything
+            _require_apim_args(args)
             client = ApimClient(
                 args.subscription_id, args.resource_group, args.service_name,
                 args.client_id, args.client_secret, args.tenant_id,
@@ -92,13 +140,13 @@ def cmd_apply(args):
             try:
                 state = backend.read()
                 success, total, errors = apply_force(
-                    args.source_dir, client, backend, state, only=only,
+                    source_dir, client, backend, state, only=only,
                 )
             finally:
                 backend.unlock()
             sys.exit(1 if errors else 0)
 
-        plan = generate_plan(args.source_dir, state, only=only)
+        plan = generate_plan(source_dir, state, only=only)
 
     # Check if there are changes
     if plan["summary"]["create"] == 0 and plan["summary"]["update"] == 0 and plan["summary"]["delete"] == 0:
@@ -114,6 +162,14 @@ def cmd_apply(args):
             print("Apply cancelled.")
             sys.exit(0)
 
+    # Resolve APIM args from state if not already done
+    if not args.plan:
+        pass  # already resolved above
+    else:
+        state = backend.read()
+        _resolve_apim_args(args, state)
+    _require_apim_args(args)
+
     client = ApimClient(
         args.subscription_id, args.resource_group, args.service_name,
         args.client_id, args.client_secret, args.tenant_id,
@@ -121,7 +177,6 @@ def cmd_apply(args):
 
     backend.lock()
     try:
-        # Re-read state under lock
         state = backend.read()
         success, total, error = apply_plan(plan, client, backend, state)
     finally:
@@ -132,23 +187,32 @@ def cmd_apply(args):
 
 def cmd_extract(args):
     """Extract artifacts from live APIM."""
+    # Try to resolve APIM args from state if available
+    state = None
+    if args.update_state:
+        be = get_backend(args)
+        state = be.read()
+        _resolve_apim_args(args, state)
+    else:
+        _resolve_apim_args(args)
+    _require_apim_args(args)
+
     client = ApimClient(
         args.subscription_id, args.resource_group, args.service_name,
         args.client_id, args.client_secret, args.tenant_id,
     )
 
     only = args.only.split(",") if args.only else None
+    output_dir = args.output_dir or DEFAULT_OUTPUT_DIR
 
     backend = None
-    state = None
     if args.update_state:
         backend = get_backend(args)
-        state = backend.read()
         if state is None:
             state = empty_state(args.subscription_id, args.resource_group, args.service_name)
 
     print(f"\nExtracting from {args.service_name}...\n")
-    extract(client, args.output_dir, only=only, backend=backend, state=state)
+    extract(client, output_dir, only=only, backend=backend, state=state)
 
 
 def cmd_force_unlock(args):
@@ -174,8 +238,9 @@ def main():
     # plan
     p_plan = subparsers.add_parser("plan", help="Show what would change")
     add_common_args(p_plan)
-    add_apim_args(p_plan)
-    p_plan.add_argument("--source-dir", required=True, help="Path to APIOps directory")
+    add_apim_args(p_plan, required=False)
+    p_plan.add_argument("--source-dir", default=DEFAULT_SOURCE_DIR,
+                        help=f"Path to APIOps directory (default: {DEFAULT_SOURCE_DIR})")
     p_plan.add_argument("--out", help="Save plan to JSON file")
     p_plan.add_argument("--only", help="Comma-separated list of artifact types")
     p_plan.add_argument("--verbose", "-v", action="store_true",
@@ -184,8 +249,9 @@ def main():
     # apply
     p_apply = subparsers.add_parser("apply", help="Apply changes to APIM")
     add_common_args(p_apply)
-    add_apim_args(p_apply)
-    p_apply.add_argument("--source-dir", help="Path to APIOps directory")
+    add_apim_args(p_apply, required=False)
+    p_apply.add_argument("--source-dir",
+                         help=f"Path to APIOps directory (default: {DEFAULT_SOURCE_DIR})")
     p_apply.add_argument("--plan", help="Path to saved plan file")
     p_apply.add_argument("--force", action="store_true",
                          help="Bypass state diff, push ALL artifacts")
@@ -197,9 +263,9 @@ def main():
     p_extract = subparsers.add_parser("extract",
                                        help="Extract artifacts from live APIM")
     add_common_args(p_extract)
-    add_apim_args(p_extract)
-    p_extract.add_argument("--output-dir", required=True,
-                           help="Directory to write APIOps files")
+    add_apim_args(p_extract, required=False)
+    p_extract.add_argument("--output-dir", default=DEFAULT_OUTPUT_DIR,
+                           help=f"Directory to write APIOps files (default: {DEFAULT_OUTPUT_DIR})")
     p_extract.add_argument("--only", help="Comma-separated list of artifact types")
     p_extract.add_argument("--update-state", action="store_true",
                            help="Update state file to match extracted artifacts")
