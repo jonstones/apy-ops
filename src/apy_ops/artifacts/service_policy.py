@@ -2,7 +2,7 @@
 
 import json
 import os
-from artifact_reader import compute_hash
+from apy_ops.artifact_reader import compute_hash
 
 ARTIFACT_TYPE = "service_policy"
 SOURCE_SUBDIR = "policy"

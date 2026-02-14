@@ -1,11 +1,11 @@
-"""Groups artifact module."""
+"""Gateways artifact module."""
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "group"
-SOURCE_SUBDIR = "groups"
+ARTIFACT_TYPE = "gateway"
+SOURCE_SUBDIR = "gateways"
 
 
 def read_local(source_dir):
@@ -14,16 +14,24 @@ def read_local(source_dir):
         return {}
     artifacts = {}
     for entry in sorted(os.listdir(base)):
-        path = os.path.join(base, entry)
-        if not entry.endswith(".json") or not os.path.isfile(path):
+        entry_path = os.path.join(base, entry)
+        # Gateway can be a directory with gatewayInformation.json or a .json file
+        if os.path.isdir(entry_path):
+            info_path = os.path.join(entry_path, "gatewayInformation.json")
+            if not os.path.isfile(info_path):
+                continue
+            props = read_json(info_path)
+            props = resolve_refs(props, entry_path)
+        elif entry.endswith(".json"):
+            props = read_json(entry_path)
+            props = resolve_refs(props, base)
+        else:
             continue
-        props = read_json(path)
-        props = resolve_refs(props, base)
-        grp_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{grp_id}"
+        gw_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{gw_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": grp_id,
+            "id": gw_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -31,15 +39,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/groups")
+    items = client.list("/gateways")
     artifacts = {}
     for item in items:
-        grp_id = item["name"]
+        gw_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{grp_id}"
+        key = f"{ARTIFACT_TYPE}:{gw_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": grp_id,
+            "id": gw_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -51,7 +59,7 @@ def write_local(output_dir, artifacts):
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
         props = dict(artifact["properties"])
-        props["id"] = f"/groups/{artifact['id']}"
+        props["id"] = f"/gateways/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
@@ -65,4 +73,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/groups/{artifact_id}"
+    return f"/gateways/{artifact_id}"

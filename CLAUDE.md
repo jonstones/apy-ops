@@ -10,94 +10,86 @@ Clean Python-based Azure APIM deployment tool that reads the APIOps git-extracte
 
 ```
 apy-ops/
-├── deploy.py              # CLI entry point: plan, apply, init, extract
-├── apim_client.py         # Azure REST API client (auth + HTTP)
-├── artifact_reader.py     # Reads APIOps directory, resolves $ref-*, computes hashes
-├── state.py               # State backend: Azure Blob Storage + local file, with locking
-├── differ.py              # Diff local artifacts vs state → list of changes
-├── planner.py             # Orchestrates plan generation
-├── applier.py             # Executes plan against APIM REST API, updates state
-├── extractor.py           # Extracts all artifacts from live APIM, writes APIOps files
-├── artifacts/             # Per-artifact-type deploy logic
-│   ├── __init__.py        # DEPLOY_ORDER list, artifact type registry
-│   ├── named_values.py
-│   ├── gateways.py
-│   ├── tags.py
-│   ├── version_sets.py
-│   ├── backends.py
-│   ├── loggers.py
-│   ├── diagnostics.py
-│   ├── policy_fragments.py
-│   ├── service_policy.py  # Global policy
-│   ├── products.py
-│   ├── groups.py
-│   ├── apis.py            # APIs + operations (atomic unit)
-│   ├── subscriptions.py
-│   ├── api_policies.py
-│   ├── api_tags.py
-│   ├── api_diagnostics.py
-│   ├── gateway_apis.py
-│   ├── product_policies.py
-│   ├── product_groups.py
-│   ├── product_tags.py
-│   ├── product_apis.py
-│   └── api_operation_policies.py
-└── requirements.txt       # azure-identity, azure-storage-blob, requests
+├── pyproject.toml         # Package config, deps, CLI entry point
+├── src/
+│   └── apy_ops/
+│       ├── __init__.py
+│       ├── cli.py             # CLI entry point: plan, apply, init, extract
+│       ├── apim_client.py     # Azure REST API client (auth + HTTP)
+│       ├── artifact_reader.py # Reads APIOps directory, resolves $ref-*, computes hashes
+│       ├── state.py           # State backend: Azure Blob Storage + local file, with locking
+│       ├── differ.py          # Diff local artifacts vs state → list of changes
+│       ├── planner.py         # Orchestrates plan generation
+│       ├── applier.py         # Executes plan against APIM REST API, updates state
+│       ├── extractor.py       # Extracts all artifacts from live APIM, writes APIOps files
+│       └── artifacts/         # Per-artifact-type deploy logic (22 modules)
+│           ├── __init__.py    # DEPLOY_ORDER list, artifact type registry
+│           ├── named_values.py, gateways.py, tags.py, version_sets.py
+│           ├── backends.py, loggers.py, diagnostics.py, policy_fragments.py
+│           ├── service_policy.py, products.py, groups.py, apis.py
+│           ├── subscriptions.py, api_policies.py, api_tags.py
+│           ├── api_diagnostics.py, gateway_apis.py, product_policies.py
+│           ├── product_groups.py, product_tags.py, product_apis.py
+│           └── api_operation_policies.py
+└── tests/                 # pytest test suite
 ```
 
 ## Commands
 
 ```bash
-pip install -r requirements.txt
+pip install -e ".[dev]"
+
+# Run tests
+pytest tests/ -v
 
 # Initialize empty state
-python deploy.py init \
+apy-ops init \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
 # or
-python deploy.py init \
+apy-ops init \
   --backend azure --backend-storage-account SA --backend-container apim-state --backend-blob myproject/apim-state.json
 
 # Plan: diff local artifacts against state file, show delta
-python deploy.py plan \
+apy-ops plan \
   --source-dir /path/to/api-management \
   --subscription-id SUB --resource-group RG --service-name APIM \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
 
 # Plan with saved output
-python deploy.py plan ... --out plan.json
+apy-ops plan ... --out plan.json
 
 # Apply: execute changes, update state
-python deploy.py apply \
+apy-ops apply \
   --source-dir /path/to/api-management \
   --subscription-id SUB --resource-group RG --service-name APIM \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
 
 # Apply a saved plan
-python deploy.py apply --plan plan.json ...
+apy-ops apply --plan plan.json ...
 
 # Force: bypass state diff, push ALL artifacts, rebuild state
-python deploy.py apply --force ...
+apy-ops apply --force ...
 
 # Auto-approve (skip confirmation, for CI/CD pipelines)
-python deploy.py apply --auto-approve ...
+apy-ops apply --auto-approve ...
 
 # Deploy specific artifact type only
-python deploy.py plan --only apis ...
+apy-ops plan --only apis ...
 
 # Extract: pull all artifacts from live APIM into APIOps-format files
-python deploy.py extract \
+apy-ops extract \
   --subscription-id SUB --resource-group RG --service-name APIM \
   --output-dir ./api-management
 
 # Extract specific types only
-python deploy.py extract ... --only apis,products,policies
+apy-ops extract ... --only apis,products,policies
 
 # Extract and populate state file (so subsequent plan shows no changes)
-python deploy.py extract ... --update-state \
+apy-ops extract ... --update-state \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
 
 # Service principal auth
-python deploy.py plan ... --client-id CID --client-secret SEC --tenant-id TID
+apy-ops plan ... --client-id CID --client-secret SEC --tenant-id TID
 ```
 
 ## Architecture

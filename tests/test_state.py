@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from state import LocalStateBackend, STATE_VERSION
+from apy_ops.state import LocalStateBackend, STATE_VERSION
 
 
 class TestLocalStateBackend:

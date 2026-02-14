@@ -3,10 +3,10 @@
 import sys
 from datetime import datetime, timezone
 
-from artifacts import ARTIFACT_TYPES
-from artifacts.apis import to_operation_payloads
-from differ import CREATE, UPDATE, DELETE
-from planner import order_changes
+from apy_ops.artifacts import ARTIFACT_TYPES
+from apy_ops.artifacts.apis import to_operation_payloads
+from apy_ops.differ import CREATE, UPDATE, DELETE
+from apy_ops.planner import order_changes
 
 # Console symbols
 CHECK = "\u2713"
@@ -110,7 +110,7 @@ def apply_force(source_dir, client, backend, state, only=None):
 
     Ignores state diff entirely. Used when state is stale due to manual APIM changes.
     """
-    from artifacts import DEPLOY_ORDER
+    from apy_ops.artifacts import DEPLOY_ORDER
 
     state["artifacts"] = {}
     total = 0

@@ -1,11 +1,11 @@
-"""Gateways artifact module."""
+"""Policy Fragments artifact module."""
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "gateway"
-SOURCE_SUBDIR = "gateways"
+ARTIFACT_TYPE = "policy_fragment"
+SOURCE_SUBDIR = "policyFragments"
 
 
 def read_local(source_dir):
@@ -15,9 +15,8 @@ def read_local(source_dir):
     artifacts = {}
     for entry in sorted(os.listdir(base)):
         entry_path = os.path.join(base, entry)
-        # Gateway can be a directory with gatewayInformation.json or a .json file
         if os.path.isdir(entry_path):
-            info_path = os.path.join(entry_path, "gatewayInformation.json")
+            info_path = os.path.join(entry_path, "policyFragmentInformation.json")
             if not os.path.isfile(info_path):
                 continue
             props = read_json(info_path)
@@ -27,11 +26,11 @@ def read_local(source_dir):
             props = resolve_refs(props, base)
         else:
             continue
-        gw_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{gw_id}"
+        pf_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{pf_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": gw_id,
+            "id": pf_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -39,15 +38,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/gateways")
+    items = client.list("/policyFragments")
     artifacts = {}
     for item in items:
-        gw_id = item["name"]
+        pf_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{gw_id}"
+        key = f"{ARTIFACT_TYPE}:{pf_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": gw_id,
+            "id": pf_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -58,10 +57,20 @@ def write_local(output_dir, artifacts):
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
+        pf_id = artifact["id"]
+        pf_dir = os.path.join(base, pf_id)
+        os.makedirs(pf_dir, exist_ok=True)
         props = dict(artifact["properties"])
-        props["id"] = f"/gateways/{artifact['id']}"
-        path = os.path.join(base, f"{artifact['id']}.json")
-        with open(path, "w") as f:
+        # Write policy XML separately if present
+        policy_content = props.pop("policy", None)
+        props["id"] = f"/policyFragments/{pf_id}"
+        if policy_content:
+            policy_path = os.path.join(pf_dir, "policy.xml")
+            with open(policy_path, "w") as f:
+                f.write(policy_content)
+            props["$ref-policy"] = "policy.xml"
+        info_path = os.path.join(pf_dir, "policyFragmentInformation.json")
+        with open(info_path, "w") as f:
             json.dump(props, f, indent=2)
             f.write("\n")
 
@@ -73,4 +82,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/gateways/{artifact_id}"
+    return f"/policyFragments/{artifact_id}"

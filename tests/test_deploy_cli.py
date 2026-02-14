@@ -6,13 +6,10 @@ import sys
 import os
 import pytest
 
-DEPLOY = os.path.join(os.path.dirname(__file__), "..", "deploy.py")
-
-
 def run_cli(*args):
-    """Run deploy.py as a subprocess and return (returncode, stdout, stderr)."""
+    """Run apy-ops CLI as a subprocess and return (returncode, stdout, stderr)."""
     result = subprocess.run(
-        [sys.executable, DEPLOY, *args],
+        [sys.executable, "-m", "apy_ops.cli", *args],
         capture_output=True, text=True, timeout=30,
     )
     return result.returncode, result.stdout, result.stderr

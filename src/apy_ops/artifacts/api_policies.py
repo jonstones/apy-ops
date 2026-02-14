@@ -2,7 +2,7 @@
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "api_policy"
 SOURCE_SUBDIR = "apis"
@@ -44,7 +44,7 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    from artifacts.apis import read_live as read_apis_live
+    from apy_ops.artifacts.apis import read_live as read_apis_live
     # We need to list APIs first, then check each for a policy
     artifacts = {}
     try:

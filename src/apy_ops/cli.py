@@ -4,11 +4,11 @@
 import argparse
 import sys
 
-from apim_client import ApimClient
-from state import get_backend, empty_state
-from planner import generate_plan, print_plan, save_plan, load_plan
-from applier import apply_plan, apply_force
-from extractor import extract
+from apy_ops.apim_client import ApimClient
+from apy_ops.state import get_backend, empty_state
+from apy_ops.planner import generate_plan, print_plan, save_plan, load_plan
+from apy_ops.applier import apply_plan, apply_force
+from apy_ops.extractor import extract
 
 
 def add_common_args(parser):

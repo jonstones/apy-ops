@@ -1,10 +1,11 @@
-"""Named Values artifact module."""
+"""Subscriptions artifact module."""
 
+import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "named_value"
-SOURCE_SUBDIR = "namedValues"
+ARTIFACT_TYPE = "subscription"
+SOURCE_SUBDIR = "subscriptions"
 
 
 def read_local(source_dir):
@@ -18,11 +19,11 @@ def read_local(source_dir):
             continue
         props = read_json(path)
         props = resolve_refs(props, base)
-        nv_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{nv_id}"
+        sub_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{sub_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": nv_id,
+            "id": sub_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -30,15 +31,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/namedValues")
+    items = client.list("/subscriptions")
     artifacts = {}
     for item in items:
-        nv_id = item["name"]
+        sub_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{nv_id}"
+        key = f"{ARTIFACT_TYPE}:{sub_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": nv_id,
+            "id": sub_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -50,9 +51,8 @@ def write_local(output_dir, artifacts):
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
         props = dict(artifact["properties"])
-        props["id"] = f"/namedValues/{artifact['id']}"
+        props["id"] = f"/subscriptions/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
-        import json
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
             f.write("\n")
@@ -65,4 +65,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/namedValues/{artifact_id}"
+    return f"/subscriptions/{artifact_id}"

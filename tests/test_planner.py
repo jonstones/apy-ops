@@ -2,8 +2,8 @@
 
 import json
 import os
-from planner import generate_plan, order_changes
-from differ import CREATE, UPDATE, DELETE, NOOP
+from apy_ops.planner import generate_plan, order_changes
+from apy_ops.differ import CREATE, UPDATE, DELETE, NOOP
 
 
 def _make_source(tmp_path, artifacts):
@@ -31,7 +31,7 @@ class TestGeneratePlan:
         source = _make_source(tmp_path, {"key1": props})
 
         # Read local to get the hash
-        from artifacts.named_values import read_local
+        from apy_ops.artifacts.named_values import read_local
         local = read_local(str(tmp_path))
         key, art = next(iter(local.items()))
 

@@ -2,8 +2,8 @@
 
 from datetime import datetime, timezone
 
-from artifacts import DEPLOY_ORDER
-from artifact_reader import compute_hash
+from apy_ops.artifacts import DEPLOY_ORDER
+from apy_ops.artifact_reader import compute_hash
 
 
 def extract(client, output_dir, only=None, backend=None, state=None):

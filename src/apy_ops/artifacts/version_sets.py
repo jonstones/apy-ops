@@ -1,11 +1,11 @@
-"""Subscriptions artifact module."""
+"""API Version Sets artifact module."""
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "subscription"
-SOURCE_SUBDIR = "subscriptions"
+ARTIFACT_TYPE = "version_set"
+SOURCE_SUBDIR = "apiVersionSets"
 
 
 def read_local(source_dir):
@@ -19,11 +19,11 @@ def read_local(source_dir):
             continue
         props = read_json(path)
         props = resolve_refs(props, base)
-        sub_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{sub_id}"
+        vs_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{vs_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": sub_id,
+            "id": vs_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -31,15 +31,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/subscriptions")
+    items = client.list("/apiVersionSets")
     artifacts = {}
     for item in items:
-        sub_id = item["name"]
+        vs_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{sub_id}"
+        key = f"{ARTIFACT_TYPE}:{vs_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": sub_id,
+            "id": vs_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -51,7 +51,7 @@ def write_local(output_dir, artifacts):
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
         props = dict(artifact["properties"])
-        props["id"] = f"/subscriptions/{artifact['id']}"
+        props["id"] = f"/apiVersionSets/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
@@ -65,4 +65,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/subscriptions/{artifact_id}"
+    return f"/apiVersionSets/{artifact_id}"

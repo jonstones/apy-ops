@@ -7,7 +7,7 @@ import pytest
 
 class TestNamedValues:
     def test_read_local(self, tmp_path):
-        from artifacts.named_values import read_local
+        from apy_ops.artifacts.named_values import read_local
         nv_dir = tmp_path / "namedValues"
         nv_dir.mkdir()
         (nv_dir / "my-key.json").write_text(json.dumps({
@@ -23,13 +23,13 @@ class TestNamedValues:
         assert art["hash"].startswith("sha256:")
 
     def test_read_local_empty_dir(self, tmp_path):
-        from artifacts.named_values import read_local
+        from apy_ops.artifacts.named_values import read_local
         assert read_local(str(tmp_path)) == {}
 
 
 class TestTags:
     def test_read_local(self, tmp_path):
-        from artifacts.tags import read_local
+        from apy_ops.artifacts.tags import read_local
         tag_dir = tmp_path / "tags"
         tag_dir.mkdir()
         (tag_dir / "env-prod.json").write_text(json.dumps({
@@ -43,7 +43,7 @@ class TestTags:
 
 class TestServicePolicy:
     def test_read_local_from_policy_dir(self, tmp_path):
-        from artifacts.service_policy import read_local
+        from apy_ops.artifacts.service_policy import read_local
         policy_dir = tmp_path / "policy"
         policy_dir.mkdir()
         (policy_dir / "policy.xml").write_text("<policies><inbound/></policies>")
@@ -52,13 +52,13 @@ class TestServicePolicy:
         assert "<policies>" in result["service_policy:policy"]["properties"]["value"]
 
     def test_read_local_no_policy(self, tmp_path):
-        from artifacts.service_policy import read_local
+        from apy_ops.artifacts.service_policy import read_local
         assert read_local(str(tmp_path)) == {}
 
 
 class TestApis:
     def test_read_local_new_format(self, tmp_path):
-        from artifacts.apis import read_local
+        from apy_ops.artifacts.apis import read_local
         api_dir = tmp_path / "apis" / "Echo API_echo-api"
         api_dir.mkdir(parents=True)
         (api_dir / "apiInformation.json").write_text(json.dumps({
@@ -87,7 +87,7 @@ class TestApis:
         assert "get-echo" in art["operations"]
 
     def test_read_local_old_format(self, tmp_path):
-        from artifacts.apis import read_local
+        from apy_ops.artifacts.apis import read_local
         api_dir = tmp_path / "apis" / "legacy"
         api_dir.mkdir(parents=True)
         (api_dir / "configuration.json").write_text(json.dumps({
@@ -99,7 +99,7 @@ class TestApis:
         assert "api:legacy" in result
 
     def test_atomic_hash_changes_on_operation_change(self, tmp_path):
-        from artifacts.apis import read_local
+        from apy_ops.artifacts.apis import read_local
         api_dir = tmp_path / "apis" / "test"
         api_dir.mkdir(parents=True)
         (api_dir / "apiInformation.json").write_text(json.dumps({
@@ -126,7 +126,7 @@ class TestApis:
 
 class TestProducts:
     def test_read_local(self, tmp_path):
-        from artifacts.products import read_local
+        from apy_ops.artifacts.products import read_local
         prod_dir = tmp_path / "products" / "starter"
         prod_dir.mkdir(parents=True)
         (prod_dir / "productInformation.json").write_text(json.dumps({
@@ -141,7 +141,7 @@ class TestProducts:
 
 class TestProductGroups:
     def test_read_local_with_groups_json(self, tmp_path):
-        from artifacts.product_groups import read_local
+        from apy_ops.artifacts.product_groups import read_local
         prod_dir = tmp_path / "products" / "starter"
         prod_dir.mkdir(parents=True)
         (prod_dir / "productInformation.json").write_text(json.dumps({

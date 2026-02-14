@@ -1,6 +1,6 @@
 """Tests for differ module."""
 
-from differ import diff, CREATE, UPDATE, DELETE, NOOP
+from apy_ops.differ import diff, CREATE, UPDATE, DELETE, NOOP
 
 
 def _artifact(type_, id_, hash_, props=None):

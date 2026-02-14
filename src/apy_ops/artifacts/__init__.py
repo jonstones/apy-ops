@@ -1,6 +1,6 @@
 """Artifact type registry and deployment order."""
 
-from artifacts import (
+from apy_ops.artifacts import (
     named_values,
     gateways,
     tags,

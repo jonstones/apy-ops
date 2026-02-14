@@ -3,7 +3,7 @@
 import json
 import os
 import yaml
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "api"
 SOURCE_SUBDIR = "apis"

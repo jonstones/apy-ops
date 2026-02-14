@@ -1,11 +1,11 @@
-"""Tags artifact module."""
+"""Loggers artifact module."""
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "tag"
-SOURCE_SUBDIR = "tags"
+ARTIFACT_TYPE = "logger"
+SOURCE_SUBDIR = "loggers"
 
 
 def read_local(source_dir):
@@ -19,11 +19,11 @@ def read_local(source_dir):
             continue
         props = read_json(path)
         props = resolve_refs(props, base)
-        tag_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{tag_id}"
+        lg_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{lg_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": tag_id,
+            "id": lg_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -31,15 +31,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/tags")
+    items = client.list("/loggers")
     artifacts = {}
     for item in items:
-        tag_id = item["name"]
+        lg_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{tag_id}"
+        key = f"{ARTIFACT_TYPE}:{lg_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": tag_id,
+            "id": lg_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -51,7 +51,7 @@ def write_local(output_dir, artifacts):
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
         props = dict(artifact["properties"])
-        props["id"] = f"/tags/{artifact['id']}"
+        props["id"] = f"/loggers/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
@@ -65,4 +65,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/tags/{artifact_id}"
+    return f"/loggers/{artifact_id}"

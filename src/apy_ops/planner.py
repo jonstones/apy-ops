@@ -3,8 +3,8 @@
 import json
 from datetime import datetime, timezone
 
-from artifacts import DEPLOY_ORDER, ARTIFACT_TYPES
-from differ import diff, CREATE, UPDATE, DELETE, NOOP
+from apy_ops.artifacts import DEPLOY_ORDER, ARTIFACT_TYPES
+from apy_ops.differ import diff, CREATE, UPDATE, DELETE, NOOP
 
 # Symbols for plan output
 SYMBOLS = {CREATE: "+", UPDATE: "~", DELETE: "-", NOOP: "."}

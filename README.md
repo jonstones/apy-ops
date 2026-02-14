@@ -13,7 +13,10 @@ A Python-based Azure API Management deployment tool that uses a **Terraform-styl
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+pip install -e .
+
+# For development (includes pytest)
+pip install -e ".[dev]"
 ```
 
 ## Quick Start
@@ -24,13 +27,13 @@ State tracks what was last deployed. Choose a backend:
 
 ```bash
 # Local file (for dev/testing)
-python deploy.py init \
+apy-ops init \
   --backend local \
   --state-file ~/.apim-state/myproject/apim-state.json \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
 
 # Azure Blob Storage (for pipelines/teams)
-python deploy.py init \
+apy-ops init \
   --backend azure \
   --backend-storage-account <SA> \
   --backend-container apim-state \
@@ -43,7 +46,7 @@ python deploy.py init \
 Compare your local APIOps files against the state file to see what would change. No calls are made to APIM.
 
 ```bash
-python deploy.py plan \
+apy-ops plan \
   --source-dir ./api-management \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
@@ -60,7 +63,7 @@ Plan: 2 to create, 1 to update, 0 to delete, 5 unchanged.
 
 Save a plan for later:
 ```bash
-python deploy.py plan ... --out plan.json
+apy-ops plan ... --out plan.json
 ```
 
 ### 3. Apply
@@ -68,7 +71,7 @@ python deploy.py plan ... --out plan.json
 Push changes to APIM. You'll be prompted to confirm.
 
 ```bash
-python deploy.py apply \
+apy-ops apply \
   --source-dir ./api-management \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
@@ -76,19 +79,19 @@ python deploy.py apply \
 
 Apply a saved plan:
 ```bash
-python deploy.py apply --plan plan.json \
+apy-ops apply --plan plan.json \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json
 ```
 
 Skip the confirmation prompt (for CI/CD):
 ```bash
-python deploy.py apply --auto-approve ...
+apy-ops apply --auto-approve ...
 ```
 
 Force-push all artifacts, ignoring state (useful when APIM was changed manually):
 ```bash
-python deploy.py apply --force ...
+apy-ops apply --force ...
 ```
 
 ### 4. Extract
@@ -96,14 +99,14 @@ python deploy.py apply --force ...
 Pull all artifacts from a live APIM instance into APIOps-format files:
 
 ```bash
-python deploy.py extract \
+apy-ops extract \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
   --output-dir ./api-management
 ```
 
 Extract and sync the state file so a subsequent `plan` shows no changes:
 ```bash
-python deploy.py extract --update-state \
+apy-ops extract --update-state \
   --backend local --state-file ~/.apim-state/myproject/apim-state.json \
   --subscription-id <SUB> --resource-group <RG> --service-name <APIM> \
   --output-dir ./api-management
@@ -115,7 +118,7 @@ By default, uses `DefaultAzureCredential` (works with `az login`, managed identi
 
 For service principal auth, pass credentials explicitly:
 ```bash
-python deploy.py plan ... \
+apy-ops plan ... \
   --client-id <CLIENT_ID> \
   --client-secret <CLIENT_SECRET> \
   --tenant-id <TENANT_ID>
@@ -126,8 +129,8 @@ python deploy.py plan ... \
 Deploy or extract only specific artifact types:
 
 ```bash
-python deploy.py plan --only apis ...
-python deploy.py extract --only apis,products ...
+apy-ops plan --only apis ...
+apy-ops extract --only apis,products ...
 ```
 
 ## Environment Variables
@@ -146,7 +149,7 @@ State backend settings can be set via environment variables instead of CLI flags
 
 **Stuck lock**: If a previous run crashed and left the state locked:
 ```bash
-python deploy.py force-unlock --backend local --state-file ~/.apim-state/myproject/apim-state.json
+apy-ops force-unlock --backend local --state-file ~/.apim-state/myproject/apim-state.json
 ```
 
 **State drift**: If someone made manual changes on APIM, use `--force` to push all local artifacts and rebuild state from scratch.

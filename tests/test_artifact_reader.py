@@ -3,7 +3,7 @@
 import json
 import os
 import pytest
-from artifact_reader import resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import resolve_refs, compute_hash, extract_id_from_path
 
 
 class TestResolveRefs:

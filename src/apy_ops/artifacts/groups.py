@@ -1,11 +1,11 @@
-"""Backends artifact module."""
+"""Groups artifact module."""
 
 import json
 import os
-from artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
-ARTIFACT_TYPE = "backend"
-SOURCE_SUBDIR = "backends"
+ARTIFACT_TYPE = "group"
+SOURCE_SUBDIR = "groups"
 
 
 def read_local(source_dir):
@@ -19,11 +19,11 @@ def read_local(source_dir):
             continue
         props = read_json(path)
         props = resolve_refs(props, base)
-        be_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
-        key = f"{ARTIFACT_TYPE}:{be_id}"
+        grp_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        key = f"{ARTIFACT_TYPE}:{grp_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": be_id,
+            "id": grp_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -31,15 +31,15 @@ def read_local(source_dir):
 
 
 def read_live(client):
-    items = client.list("/backends")
+    items = client.list("/groups")
     artifacts = {}
     for item in items:
-        be_id = item["name"]
+        grp_id = item["name"]
         props = item.get("properties", {})
-        key = f"{ARTIFACT_TYPE}:{be_id}"
+        key = f"{ARTIFACT_TYPE}:{grp_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
-            "id": be_id,
+            "id": grp_id,
             "hash": compute_hash(props),
             "properties": props,
         }
@@ -51,7 +51,7 @@ def write_local(output_dir, artifacts):
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
         props = dict(artifact["properties"])
-        props["id"] = f"/backends/{artifact['id']}"
+        props["id"] = f"/groups/{artifact['id']}"
         path = os.path.join(base, f"{artifact['id']}.json")
         with open(path, "w") as f:
             json.dump(props, f, indent=2)
@@ -65,4 +65,4 @@ def to_rest_payload(artifact):
 
 
 def resource_path(artifact_id):
-    return f"/backends/{artifact_id}"
+    return f"/groups/{artifact_id}"

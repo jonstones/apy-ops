@@ -2,7 +2,7 @@
 
 import json
 import os
-from artifact_reader import read_json, compute_hash, extract_id_from_path
+from apy_ops.artifact_reader import read_json, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "product_policy"
 SOURCE_SUBDIR = "products"
