@@ -43,3 +43,60 @@ class TestApplyPlanForce:
         assert result[0] == 2
         assert result[1] == 3
         assert result[2] == "err1; err2"
+
+
+class TestApplyPlanErrorPath:
+    """Test apply_plan stops on first error and returns error info."""
+
+    def test_apply_stops_on_first_error(self):
+        from apy_ops.differ import CREATE
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        plan = {
+            "summary": {"create": 2, "update": 0, "delete": 0, "noop": 0},
+            "changes": [
+                {
+                    "action": CREATE, "type": "named_value", "key": "nv:a",
+                    "id": "a", "display_name": "a", "detail": "new",
+                    "old": None,
+                    "new": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                            "properties": {"displayName": "a"}},
+                },
+                {
+                    "action": CREATE, "type": "named_value", "key": "nv:b",
+                    "id": "b", "display_name": "b", "detail": "new",
+                    "old": None,
+                    "new": {"type": "named_value", "id": "b", "hash": "sha256:y",
+                            "properties": {"displayName": "b"}},
+                },
+            ],
+        }
+
+        # First PUT succeeds, second fails
+        client.put.side_effect = [MagicMock(), Exception("400 Bad Request")]
+        success, total, error = apply_plan(plan, client, backend, state)
+        assert success == 1
+        assert total == 2
+        assert error is not None
+        assert "400 Bad Request" in error
+
+    def test_apply_empty_changes_returns_zero(self):
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        plan = {
+            "summary": {"create": 0, "update": 0, "delete": 0, "noop": 3},
+            "changes": [
+                {"action": "noop", "type": "named_value", "key": "nv:a",
+                 "id": "a", "display_name": "a", "detail": "unchanged",
+                 "old": None, "new": None},
+            ],
+        }
+
+        success, total, error = apply_plan(plan, client, backend, state)
+        assert success == 0
+        assert total == 0
+        assert error is None

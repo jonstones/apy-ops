@@ -133,3 +133,12 @@ class TestGetBackendAzureValidation:
         backend = get_backend(args)
         assert isinstance(backend, LocalStateBackend)
         assert backend.state_file == state_file
+
+    def test_local_backend_no_state_file_raises(self, monkeypatch):
+        monkeypatch.delenv("APIM_STATE_FILE", raising=False)
+        args = SimpleNamespace(
+            backend="local",
+            state_file=None,
+        )
+        with pytest.raises(ValueError, match="state-file"):
+            get_backend(args)
