@@ -1,10 +1,11 @@
-"""Tests for CLI error paths."""
+"""Tests for CLI error paths and command functions."""
 
 import json
 import os
 import subprocess
 import sys
 from types import SimpleNamespace
+from unittest.mock import patch, MagicMock
 
 import pytest
 
@@ -133,3 +134,96 @@ class TestResolveApimArgs:
         assert args.subscription_id == "flag-sub"  # flag wins
         assert args.resource_group == "st-rg"  # falls through to state
         assert args.service_name == "st-svc"
+
+
+class TestCmdInit:
+    def test_cmd_init_creates_state(self, tmp_path):
+        from apy_ops.cli import cmd_init
+        state_file = str(tmp_path / "state.json")
+        args = SimpleNamespace(
+            backend="local", state_file=state_file,
+            subscription_id="sub-1", resource_group="rg-1", service_name="apim-1",
+            backend_storage_account=None, backend_container=None, backend_blob=None,
+            client_id=None, client_secret=None, tenant_id=None,
+        )
+        cmd_init(args)
+        assert os.path.isfile(state_file)
+        with open(state_file) as f:
+            data = json.load(f)
+        assert data["subscription_id"] == "sub-1"
+
+    def test_cmd_init_default_empty_strings(self, tmp_path):
+        from apy_ops.cli import cmd_init
+        state_file = str(tmp_path / "state.json")
+        args = SimpleNamespace(
+            backend="local", state_file=state_file,
+            subscription_id=None, resource_group=None, service_name=None,
+            backend_storage_account=None, backend_container=None, backend_blob=None,
+            client_id=None, client_secret=None, tenant_id=None,
+        )
+        cmd_init(args)
+        with open(state_file) as f:
+            data = json.load(f)
+        assert data["subscription_id"] == ""
+
+
+class TestCmdForceUnlock:
+    def test_force_unlock_removes_lock(self, tmp_path):
+        from apy_ops.cli import cmd_force_unlock
+        state_file = str(tmp_path / "state.json")
+        # Create state and lock
+        with open(state_file, "w") as f:
+            json.dump({"version": 1, "artifacts": {}}, f)
+        with open(state_file + ".lock", "w") as f:
+            f.write("1234")
+        args = SimpleNamespace(
+            backend="local", state_file=state_file,
+            backend_storage_account=None, backend_container=None, backend_blob=None,
+            client_id=None, client_secret=None, tenant_id=None,
+        )
+        cmd_force_unlock(args)
+        assert not os.path.isfile(state_file + ".lock")
+
+
+class TestCmdPlan:
+    def test_cmd_plan_no_changes_exits_0(self, tmp_path):
+        """Plan with no changes exits 0."""
+        state_file = str(tmp_path / "state.json")
+        run_cli("init", "--backend", "local", "--state-file", state_file)
+        rc, out, err = run_cli(
+            "plan", "--backend", "local", "--state-file", state_file,
+            "--source-dir", str(tmp_path),
+        )
+        assert rc == 0
+
+    def test_cmd_plan_saves_to_file(self, tmp_path):
+        state_file = str(tmp_path / "state.json")
+        plan_file = str(tmp_path / "plan.json")
+        nv_dir = tmp_path / "source" / "namedValues"
+        nv_dir.mkdir(parents=True)
+        (nv_dir / "k.json").write_text(json.dumps({
+            "id": "/namedValues/k", "displayName": "k", "value": "v",
+        }))
+        run_cli("init", "--backend", "local", "--state-file", state_file)
+        rc, out, err = run_cli(
+            "plan", "--backend", "local", "--state-file", state_file,
+            "--source-dir", str(tmp_path / "source"), "--out", plan_file,
+        )
+        assert rc == 2  # changes exist
+        assert os.path.isfile(plan_file)
+        with open(plan_file) as f:
+            plan = json.load(f)
+        assert plan["summary"]["create"] >= 1
+
+
+class TestRequireApimArgs:
+    def test_require_exits_when_missing(self):
+        from apy_ops.cli import _require_apim_args
+        args = SimpleNamespace(subscription_id=None, resource_group=None, service_name=None)
+        with pytest.raises(SystemExit):
+            _require_apim_args(args)
+
+    def test_require_passes_when_present(self):
+        from apy_ops.cli import _require_apim_args
+        args = SimpleNamespace(subscription_id="s", resource_group="r", service_name="n")
+        _require_apim_args(args)  # should not raise

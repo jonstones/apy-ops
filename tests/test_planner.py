@@ -2,7 +2,7 @@
 
 import json
 import os
-from apy_ops.planner import generate_plan, order_changes
+from apy_ops.planner import generate_plan, order_changes, print_plan, save_plan, load_plan
 from apy_ops.differ import CREATE, UPDATE, DELETE, NOOP
 
 
@@ -99,3 +99,77 @@ class TestOrderChanges:
         # Reverse order: api before tag before named_value
         assert types.index("api") < types.index("tag")
         assert types.index("tag") < types.index("named_value")
+
+
+class TestPrintPlan:
+    def test_print_plan_no_changes(self, capsys):
+        plan = {
+            "summary": {"create": 0, "update": 0, "delete": 0, "noop": 5},
+            "changes": [
+                {"action": NOOP, "type": "named_value", "display_name": "k1", "detail": "unchanged"},
+            ],
+        }
+        print_plan(plan)
+        captured = capsys.readouterr()
+        assert "No changes" in captured.out
+        assert "0 to create" in captured.out
+
+    def test_print_plan_with_changes(self, capsys):
+        plan = {
+            "summary": {"create": 1, "update": 1, "delete": 0, "noop": 0},
+            "changes": [
+                {"action": CREATE, "type": "named_value", "display_name": "k1", "detail": "new"},
+                {"action": UPDATE, "type": "backend", "display_name": "b1", "detail": "changed url"},
+            ],
+        }
+        print_plan(plan)
+        captured = capsys.readouterr()
+        assert "1 to create" in captured.out
+        assert "1 to update" in captured.out
+        assert '"k1"' in captured.out
+        assert '"b1"' in captured.out
+
+    def test_print_plan_verbose_shows_noop(self, capsys):
+        plan = {
+            "summary": {"create": 1, "update": 0, "delete": 0, "noop": 1},
+            "changes": [
+                {"action": CREATE, "type": "tag", "display_name": "t1", "detail": "new"},
+                {"action": NOOP, "type": "tag", "display_name": "t2", "detail": "unchanged"},
+            ],
+        }
+        print_plan(plan, verbose=True)
+        captured = capsys.readouterr()
+        assert '"t2"' in captured.out  # noop shown in verbose mode
+
+    def test_print_plan_hides_noop_by_default(self, capsys):
+        plan = {
+            "summary": {"create": 1, "update": 0, "delete": 0, "noop": 1},
+            "changes": [
+                {"action": CREATE, "type": "tag", "display_name": "t1", "detail": "new"},
+                {"action": NOOP, "type": "tag", "display_name": "t2", "detail": "unchanged"},
+            ],
+        }
+        print_plan(plan, verbose=False)
+        captured = capsys.readouterr()
+        assert '"t1"' in captured.out
+        assert '"t2"' not in captured.out
+
+
+class TestSaveLoadPlan:
+    def test_save_and_load_roundtrip(self, tmp_path):
+        plan = {
+            "generated_at": "2025-01-01T00:00:00",
+            "source_dir": "/tmp/src",
+            "summary": {"create": 1, "update": 0, "delete": 0, "noop": 0},
+            "changes": [
+                {"action": CREATE, "type": "named_value", "key": "nv:a",
+                 "id": "a", "display_name": "a", "detail": "new",
+                 "old": None, "new": {"type": "named_value", "id": "a"}},
+            ],
+        }
+        path = str(tmp_path / "plan.json")
+        save_plan(plan, path)
+        assert os.path.isfile(path)
+        loaded = load_plan(path)
+        assert loaded["summary"]["create"] == 1
+        assert loaded["changes"][0]["key"] == "nv:a"

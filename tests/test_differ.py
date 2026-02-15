@@ -72,3 +72,15 @@ class TestDiff:
         state = {"t:x": _artifact("t", "x", "h1", {"a": 1})}
         changes = diff(local, state)
         assert "added b" in changes[0]["detail"]
+
+    def test_update_detail_shows_removed_field(self):
+        local = {"t:x": _artifact("t", "x", "h2", {"a": 1})}
+        state = {"t:x": _artifact("t", "x", "h1", {"a": 1, "b": 2})}
+        changes = diff(local, state)
+        assert "removed b" in changes[0]["detail"]
+
+    def test_update_detail_shows_changed_complex_value(self):
+        local = {"t:x": _artifact("t", "x", "h2", {"a": [1, 2, 3]})}
+        state = {"t:x": _artifact("t", "x", "h1", {"a": [1]})}
+        changes = diff(local, state)
+        assert "changed a" in changes[0]["detail"]

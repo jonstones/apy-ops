@@ -1,9 +1,13 @@
 """Tests for applier module."""
 
+import json
+import os
+
 import pytest
 from unittest.mock import patch, MagicMock
 
-from apy_ops.applier import apply_plan, apply_force
+from apy_ops.applier import apply_plan, apply_force, _apply_change, _update_state
+from apy_ops.differ import CREATE, UPDATE, DELETE
 
 
 class TestApplyPlanForce:
@@ -100,3 +104,218 @@ class TestApplyPlanErrorPath:
         assert success == 0
         assert total == 0
         assert error is None
+
+
+class TestApplyChange:
+    """Test _apply_change dispatches correctly to APIM REST API."""
+
+    def test_create_calls_put(self):
+        client = MagicMock()
+        change = {
+            "action": CREATE, "type": "named_value", "key": "nv:a",
+            "new": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                    "properties": {"displayName": "a", "value": "v"}},
+        }
+        _apply_change(change, client)
+        client.put.assert_called_once()
+        call_args = client.put.call_args
+        assert "/namedValues/a" == call_args[0][0]
+
+    def test_update_calls_put(self):
+        client = MagicMock()
+        change = {
+            "action": UPDATE, "type": "backend", "key": "backend:b1",
+            "new": {"type": "backend", "id": "b1", "hash": "sha256:x",
+                    "properties": {"displayName": "B1", "url": "https://b1"}},
+        }
+        _apply_change(change, client)
+        client.put.assert_called_once()
+        assert "/backends/b1" == client.put.call_args[0][0]
+
+    def test_delete_calls_delete(self):
+        client = MagicMock()
+        change = {
+            "action": DELETE, "type": "tag", "key": "tag:t1",
+            "old": {"type": "tag", "id": "t1", "hash": "sha256:x",
+                    "properties": {"displayName": "T1"}},
+        }
+        _apply_change(change, client)
+        client.delete.assert_called_once_with("/tags/t1")
+
+    def test_create_api_also_pushes_operations(self):
+        client = MagicMock()
+        change = {
+            "action": CREATE, "type": "api", "key": "api:echo",
+            "new": {
+                "type": "api", "id": "echo", "hash": "sha256:x",
+                "properties": {"displayName": "Echo", "path": "echo"},
+                "spec": None,
+                "operations": {
+                    "get-echo": {"method": "GET", "urlTemplate": "/echo"},
+                },
+            },
+        }
+        _apply_change(change, client)
+        # Should have called put for the API + the operation
+        assert client.put.call_count == 2
+        paths = [call[0][0] for call in client.put.call_args_list]
+        assert "/apis/echo" in paths
+        assert "/apis/echo/operations/get-echo" in paths
+
+
+class TestUpdateState:
+    """Test _update_state correctly modifies the state dict."""
+
+    def test_create_adds_to_state(self):
+        state = {"artifacts": {}}
+        change = {
+            "action": CREATE, "key": "nv:a",
+            "new": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                    "properties": {"displayName": "a"}},
+        }
+        _update_state(change, state)
+        assert "nv:a" in state["artifacts"]
+        assert state["artifacts"]["nv:a"]["hash"] == "sha256:x"
+
+    def test_update_replaces_in_state(self):
+        state = {"artifacts": {
+            "nv:a": {"type": "named_value", "id": "a", "hash": "sha256:old",
+                     "properties": {"displayName": "a"}},
+        }}
+        change = {
+            "action": UPDATE, "key": "nv:a",
+            "new": {"type": "named_value", "id": "a", "hash": "sha256:new",
+                    "properties": {"displayName": "a-updated"}},
+        }
+        _update_state(change, state)
+        assert state["artifacts"]["nv:a"]["hash"] == "sha256:new"
+
+    def test_delete_removes_from_state(self):
+        state = {"artifacts": {
+            "nv:a": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                     "properties": {"displayName": "a"}},
+        }}
+        change = {"action": DELETE, "key": "nv:a", "old": state["artifacts"]["nv:a"]}
+        _update_state(change, state)
+        assert "nv:a" not in state["artifacts"]
+
+
+class TestApplyPlanSuccess:
+    """Test apply_plan happy path with state updates and backend writes."""
+
+    def test_successful_apply_updates_state(self):
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        plan = {
+            "summary": {"create": 1, "update": 0, "delete": 0, "noop": 0},
+            "changes": [
+                {
+                    "action": CREATE, "type": "named_value", "key": "nv:a",
+                    "id": "a", "display_name": "a", "detail": "new",
+                    "old": None,
+                    "new": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                            "properties": {"displayName": "a"}},
+                },
+            ],
+        }
+
+        success, total, error = apply_plan(plan, client, backend, state)
+        assert success == 1
+        assert total == 1
+        assert error is None
+        assert "nv:a" in state["artifacts"]
+        # backend.write should be called: once per change + once for last_applied
+        assert backend.write.call_count == 2
+
+    def test_delete_removes_from_state(self):
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {
+            "nv:a": {"type": "named_value", "id": "a", "hash": "sha256:x",
+                     "properties": {"displayName": "a"}},
+        }}
+
+        plan = {
+            "summary": {"create": 0, "update": 0, "delete": 1, "noop": 0},
+            "changes": [
+                {
+                    "action": DELETE, "type": "named_value", "key": "nv:a",
+                    "id": "a", "display_name": "a", "detail": "removed",
+                    "old": state["artifacts"]["nv:a"],
+                    "new": None,
+                },
+            ],
+        }
+
+        success, total, error = apply_plan(plan, client, backend, state)
+        assert success == 1
+        assert error is None
+        assert "nv:a" not in state["artifacts"]
+        client.delete.assert_called_once()
+
+
+class TestApplyForce:
+    """Test apply_force pushes all local artifacts."""
+
+    def test_force_reads_and_pushes_all(self, tmp_path):
+        nv_dir = tmp_path / "namedValues"
+        nv_dir.mkdir()
+        (nv_dir / "k1.json").write_text(json.dumps({
+            "id": "/namedValues/k1", "displayName": "k1", "value": "v",
+        }))
+
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        success, total, errors = apply_force(str(tmp_path), client, backend, state)
+        assert total >= 1
+        assert success >= 1
+        assert errors == []
+        assert "named_value:k1" in state["artifacts"]
+        client.put.assert_called()
+
+    def test_force_continues_on_error(self, tmp_path):
+        nv_dir = tmp_path / "namedValues"
+        nv_dir.mkdir()
+        (nv_dir / "k1.json").write_text(json.dumps({
+            "id": "/namedValues/k1", "displayName": "k1", "value": "v",
+        }))
+        (nv_dir / "k2.json").write_text(json.dumps({
+            "id": "/namedValues/k2", "displayName": "k2", "value": "v",
+        }))
+
+        client = MagicMock()
+        client.put.side_effect = [Exception("fail"), MagicMock()]
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        success, total, errors = apply_force(str(tmp_path), client, backend, state)
+        assert success == 1
+        assert total == 2
+        assert len(errors) == 1
+
+    def test_force_only_filter(self, tmp_path):
+        nv_dir = tmp_path / "namedValues"
+        nv_dir.mkdir()
+        (nv_dir / "k1.json").write_text(json.dumps({
+            "id": "/namedValues/k1", "displayName": "k1", "value": "v",
+        }))
+        tag_dir = tmp_path / "tags"
+        tag_dir.mkdir()
+        (tag_dir / "t1.json").write_text(json.dumps({
+            "id": "/tags/t1", "displayName": "t1",
+        }))
+
+        client = MagicMock()
+        backend = MagicMock()
+        state = {"artifacts": {}}
+
+        success, total, errors = apply_force(
+            str(tmp_path), client, backend, state, only=["tag"],
+        )
+        assert total == 1
+        assert "tag:t1" in state["artifacts"]
+        assert "named_value:k1" not in state["artifacts"]
