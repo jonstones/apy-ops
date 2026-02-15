@@ -62,21 +62,6 @@ def read_json(path: str) -> dict[str, Any]:
         return result
 
 
-def find_artifact_dirs(source_dir: str, subdir: str) -> list[tuple[str, str]]:
-    """Find all artifact directories/files under source_dir/subdir.
-
-    Returns list of (name, path) tuples.
-    """
-    base = os.path.join(source_dir, subdir)
-    if not os.path.isdir(base):
-        return []
-    results = []
-    for entry in sorted(os.listdir(base)):
-        full = os.path.join(base, entry)
-        results.append((entry, full))
-    return results
-
-
 def extract_id_from_path(id_path: str) -> str:
     """Extract the short ID from an APIOps id path.
 

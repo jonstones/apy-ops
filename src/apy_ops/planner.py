@@ -6,7 +6,7 @@ import json
 from datetime import datetime, timezone
 from typing import Any
 
-from apy_ops.artifacts import DEPLOY_ORDER, ARTIFACT_TYPES
+from apy_ops.artifacts import DEPLOY_ORDER
 from apy_ops.differ import diff, CREATE, UPDATE, DELETE, NOOP
 
 # Symbols for plan output

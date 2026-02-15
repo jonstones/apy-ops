@@ -11,7 +11,7 @@ from typing import Any
 from apy_ops.apim_client import ApimClient
 from apy_ops.state import get_backend, empty_state
 from apy_ops.planner import generate_plan, print_plan, save_plan, load_plan
-from apy_ops.applier import apply_plan, apply_force
+from apy_ops.applier import apply_plan
 from apy_ops.extractor import extract
 
 DEFAULT_STATE_FILE = ".apim-state.json"
