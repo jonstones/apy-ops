@@ -138,7 +138,7 @@ def cmd_apply(args):
             )
             backend.lock()
             try:
-                state = backend.read()
+                state = backend.read() or {"artifacts": {}}
                 success, total, error = apply_plan(
                     None, client, backend, state,
                     force=True, source_dir=source_dir, only=only,
@@ -178,7 +178,7 @@ def cmd_apply(args):
 
     backend.lock()
     try:
-        state = backend.read()
+        state = backend.read() or {"artifacts": {}}
         success, total, error = apply_plan(plan, client, backend, state)
     finally:
         backend.unlock()

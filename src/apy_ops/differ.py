@@ -49,7 +49,7 @@ def diff(local_artifacts, state_artifacts):
                 "old": state,
                 "new": None,
             })
-        elif local["hash"] != state["hash"]:
+        elif local and state and local["hash"] != state["hash"]:
             detail = _diff_detail(state.get("properties", {}), local.get("properties", {}))
             changes.append({
                 "action": UPDATE,
@@ -61,7 +61,7 @@ def diff(local_artifacts, state_artifacts):
                 "old": state,
                 "new": local,
             })
-        else:
+        elif local and state:
             changes.append({
                 "action": NOOP,
                 "key": key,

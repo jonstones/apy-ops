@@ -140,7 +140,8 @@ class AzureBlobStateBackend:
     def _renew_loop(self):
         while not self._stop_renew.wait(timeout=LEASE_DURATION / 2):
             try:
-                self._lease.renew()
+                if self._lease:
+                    self._lease.renew()
             except Exception:
                 break
 
