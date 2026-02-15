@@ -1,7 +1,12 @@
 """Azure API Management REST API client."""
 
+from __future__ import annotations
+
 import time
+from typing import Any
+
 import requests
+from azure.core.credentials import TokenCredential
 from azure.identity import DefaultAzureCredential, ClientSecretCredential
 
 API_VERSION = "2024-05-01"
@@ -12,22 +17,24 @@ INITIAL_BACKOFF = 1  # seconds
 class ApimClient:
     """Thin wrapper around Azure APIM REST API with auth and retry."""
 
-    def __init__(self, subscription_id, resource_group, service_name,
-                 client_id=None, client_secret=None, tenant_id=None):
+    def __init__(self, subscription_id: str, resource_group: str, service_name: str,
+                 client_id: str | None = None, client_secret: str | None = None,
+                 tenant_id: str | None = None) -> None:
         self.base_url = (
             f"https://management.azure.com/subscriptions/{subscription_id}"
             f"/resourceGroups/{resource_group}"
             f"/providers/Microsoft.ApiManagement/service/{service_name}"
         )
+        credential: TokenCredential
         if client_id and client_secret and tenant_id:
             credential = ClientSecretCredential(tenant_id, client_id, client_secret)
         else:
             credential = DefaultAzureCredential()
         self._credential = credential
-        self._token = None
-        self._token_expiry = 0
+        self._token: str | None = None
+        self._token_expiry: float = 0
 
-    def _get_token(self):
+    def _get_token(self) -> str:
         now = time.time()
         if self._token and now < self._token_expiry - 60:
             return self._token
@@ -36,13 +43,13 @@ class ApimClient:
         self._token_expiry = token.expires_on
         return self._token
 
-    def _headers(self):
+    def _headers(self) -> dict[str, str]:
         return {
             "Authorization": f"Bearer {self._get_token()}",
             "Content-Type": "application/json",
         }
 
-    def _request(self, method, path, body=None):
+    def _request(self, method: str, path: str, body: dict[str, Any] | None = None) -> requests.Response:
         url = f"{self.base_url}{path}"
         params = {"api-version": API_VERSION}
         backoff = INITIAL_BACKOFF
@@ -60,16 +67,17 @@ class ApimClient:
             return resp
         return resp  # return last response if all retries exhausted
 
-    def get(self, path):
+    def get(self, path: str) -> dict[str, Any]:
         resp = self._request("GET", path)
         resp.raise_for_status()
-        return resp.json()
+        result: dict[str, Any] = resp.json()
+        return result
 
-    def list(self, path):
+    def list(self, path: str) -> list[dict[str, Any]]:
         """GET with pagination support. Returns list of all items."""
-        items = []
-        url = f"{self.base_url}{path}"
-        params = {"api-version": API_VERSION}
+        items: list[dict[str, Any]] = []
+        url: str | None = f"{self.base_url}{path}"
+        params: dict[str, str] = {"api-version": API_VERSION}
         while url:
             backoff = INITIAL_BACKOFF
             resp = None
@@ -84,6 +92,7 @@ class ApimClient:
                         backoff *= 2
                         continue
                 break
+            assert resp is not None
             resp.raise_for_status()
             data = resp.json()
             items.extend(data.get("value", []))
@@ -91,12 +100,12 @@ class ApimClient:
             params = {}  # nextLink includes query params
         return items
 
-    def put(self, path, body):
+    def put(self, path: str, body: dict[str, Any]) -> dict[str, Any] | None:
         resp = self._request("PUT", path, body)
         resp.raise_for_status()
         return resp.json() if resp.content else None
 
-    def delete(self, path):
+    def delete(self, path: str) -> None:
         url = f"{self.base_url}{path}"
         params = {"api-version": API_VERSION}
         resp = requests.delete(

@@ -1,14 +1,17 @@
 """Gateway-API associations artifact module."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 from apy_ops.artifact_reader import read_json, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "gateway_api"
 SOURCE_SUBDIR = "gateways"
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     base = os.path.join(source_dir, SOURCE_SUBDIR)
     if not os.path.isdir(base):
         return {}
@@ -43,7 +46,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     artifacts = {}
     try:
         gateways = client.list("/gateways")
@@ -68,7 +71,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     by_gw = {}
     for artifact in artifacts.values():
@@ -84,10 +87,10 @@ def write_local(output_dir, artifacts):
             f.write("\n")
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     return {"properties": {"provisioningState": "created"}}
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     gw_id, api_id = artifact_id.split("/", 1)
     return f"/gateways/{gw_id}/apis/{api_id}"

@@ -1,14 +1,17 @@
 """Service (global) policy artifact module."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 from apy_ops.artifact_reader import compute_hash
 
 ARTIFACT_TYPE = "service_policy"
 SOURCE_SUBDIR = "policy"
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     # Global policy is at <source>/policy/policy.xml or <source>/policy.xml
     artifacts = {}
     for candidate in [
@@ -30,7 +33,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     artifacts = {}
     try:
         data = client.get("/policies/policy")
@@ -47,7 +50,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     for artifact in artifacts.values():
         policy_dir = os.path.join(output_dir, "policy")
         os.makedirs(policy_dir, exist_ok=True)
@@ -57,9 +60,9 @@ def write_local(output_dir, artifacts):
             f.write(content)
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     return {"properties": artifact["properties"]}
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     return "/policies/policy"

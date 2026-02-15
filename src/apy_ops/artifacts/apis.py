@@ -1,7 +1,10 @@
 """APIs artifact module — atomic unit (API + spec + operations)."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 import yaml
 from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
@@ -17,7 +20,7 @@ SPEC_FORMAT_MAP = {
 }
 
 
-def _detect_spec_format(spec_path):
+def _detect_spec_format(spec_path: str) -> tuple[str, str]:
     """Detect the spec file type and OpenAPI version, return (format_str, content)."""
     ext = os.path.splitext(spec_path)[1].lower()
     with open(spec_path, "r") as f:
@@ -52,7 +55,7 @@ def _detect_spec_format(spec_path):
         return SPEC_FORMAT_MAP.get(("json", version), "openapi+json"), content
 
 
-def _find_spec_file(api_dir):
+def _find_spec_file(api_dir: str) -> str | None:
     """Find the specification file in an API directory."""
     for name in ["specification.json", "specification.yaml", "specification.yml",
                   "specification.wsdl", "specification.wadl", "specification.graphql"]:
@@ -62,7 +65,7 @@ def _find_spec_file(api_dir):
     return None
 
 
-def _read_operations(api_dir):
+def _read_operations(api_dir: str) -> dict[str, dict[str, Any]]:
     """Read operations from separate files in the API directory."""
     ops = {}
     for entry in sorted(os.listdir(api_dir)):
@@ -82,7 +85,7 @@ def _read_operations(api_dir):
     return ops
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     base = os.path.join(source_dir, SOURCE_SUBDIR)
     if not os.path.isdir(base):
         return {}
@@ -132,7 +135,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     items = client.list("/apis")
     artifacts = {}
     for item in items:
@@ -167,7 +170,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
@@ -197,7 +200,7 @@ def write_local(output_dir, artifacts):
                 f.write("\n")
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     """Build the PUT body for the API resource.
 
     If a spec file is present, include it as an import payload.
@@ -214,7 +217,7 @@ def to_rest_payload(artifact):
     return payload
 
 
-def to_operation_payloads(artifact):
+def to_operation_payloads(artifact: dict[str, Any]) -> list[tuple[str, dict[str, Any]]]:
     """Return list of (op_id, payload) for each operation to PUT."""
     results = []
     for op_id, op_props in artifact.get("operations", {}).items():
@@ -224,5 +227,5 @@ def to_operation_payloads(artifact):
     return results
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     return f"/apis/{artifact_id}"

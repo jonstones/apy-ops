@@ -1,14 +1,17 @@
 """Gateways artifact module."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "gateway"
 SOURCE_SUBDIR = "gateways"
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     base = os.path.join(source_dir, SOURCE_SUBDIR)
     if not os.path.isdir(base):
         return {}
@@ -38,7 +41,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     items = client.list("/gateways")
     artifacts = {}
     for item in items:
@@ -54,7 +57,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
@@ -66,11 +69,11 @@ def write_local(output_dir, artifacts):
             f.write("\n")
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     props = dict(artifact["properties"])
     props.pop("id", None)
     return {"properties": props}
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     return f"/gateways/{artifact_id}"

@@ -1,5 +1,9 @@
 """Diff local artifacts against state to produce a list of changes."""
 
+from __future__ import annotations
+
+from typing import Any
+
 
 # Change actions
 CREATE = "create"
@@ -8,7 +12,7 @@ DELETE = "delete"
 NOOP = "noop"
 
 
-def diff(local_artifacts, state_artifacts):
+def diff(local_artifacts: dict[str, dict[str, Any]], state_artifacts: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     """Compare local artifacts dict against state artifacts dict.
 
     Both are dict[key, artifact] where artifact has at minimum:
@@ -76,13 +80,13 @@ def diff(local_artifacts, state_artifacts):
     return changes
 
 
-def _display_name(artifact):
+def _display_name(artifact: dict[str, Any]) -> str:
     """Get a human-readable display name for an artifact."""
     props = artifact.get("properties", {})
     return props.get("displayName") or props.get("name") or artifact.get("id", "")
 
 
-def _diff_detail(old_props, new_props):
+def _diff_detail(old_props: dict[str, Any], new_props: dict[str, Any]) -> str:
     """Produce a short summary of what changed between two property dicts."""
     changed = []
     all_keys = set(old_props.keys()) | set(new_props.keys())
@@ -97,9 +101,10 @@ def _diff_detail(old_props, new_props):
             else:
                 # For simple scalar values, show old→new
                 if isinstance(old_val, (str, int, float, bool)) and isinstance(new_val, (str, int, float, bool)):
-                    changed.append(f"{k} {old_val!r}\u2192{new_val!r}")
+                    changed.append(f"{k} {old_val!r}→{new_val!r}")
                 else:
                     changed.append(f"changed {k}")
     if not changed:
         return "changed"
-    return ", ".join(changed[:3]) + ("..." if len(changed) > 3 else "")
+    result: str = ", ".join(changed[:3]) + ("..." if len(changed) > 3 else "")
+    return result

@@ -1,11 +1,14 @@
 """Reads APIOps git-extracted directory structure, resolves cross-references, computes hashes."""
 
+from __future__ import annotations
+
 import hashlib
 import json
 import os
+from typing import Any
 
 
-def resolve_refs(props, base_dir):
+def resolve_refs(props: Any, base_dir: str) -> Any:
     """Recursively resolve $ref-* keys in a properties dict.
 
     $ref-policy → read XML file content
@@ -46,19 +49,20 @@ def resolve_refs(props, base_dir):
     return resolved
 
 
-def compute_hash(properties):
+def compute_hash(properties: dict[str, Any]) -> str:
     """Compute SHA256 hash of normalized (sorted-keys) JSON representation."""
     canonical = json.dumps(properties, sort_keys=True, separators=(",", ":"))
     return "sha256:" + hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
-def read_json(path):
+def read_json(path: str) -> dict[str, Any]:
     """Read and parse a JSON file."""
     with open(path, "r") as f:
-        return json.load(f)
+        result: dict[str, Any] = json.load(f)
+        return result
 
 
-def find_artifact_dirs(source_dir, subdir):
+def find_artifact_dirs(source_dir: str, subdir: str) -> list[tuple[str, str]]:
     """Find all artifact directories/files under source_dir/subdir.
 
     Returns list of (name, path) tuples.
@@ -73,7 +77,7 @@ def find_artifact_dirs(source_dir, subdir):
     return results
 
 
-def extract_id_from_path(id_path):
+def extract_id_from_path(id_path: str) -> str:
     """Extract the short ID from an APIOps id path.
 
     "/apis/echo-api" → "echo-api"

@@ -1,7 +1,10 @@
 """Plan generation: read local artifacts, load state, diff, produce ordered plan."""
 
+from __future__ import annotations
+
 import json
 from datetime import datetime, timezone
+from typing import Any
 
 from apy_ops.artifacts import DEPLOY_ORDER, ARTIFACT_TYPES
 from apy_ops.differ import diff, CREATE, UPDATE, DELETE, NOOP
@@ -12,7 +15,7 @@ COLORS = {CREATE: "\033[32m", UPDATE: "\033[33m", DELETE: "\033[31m", NOOP: "\03
 RESET = "\033[0m"
 
 
-def generate_plan(source_dir, state, only=None):
+def generate_plan(source_dir: str, state: dict[str, Any], only: list[str] | None = None) -> dict[str, Any]:
     """Generate a plan by diffing local artifacts against state.
 
     Args:
@@ -26,12 +29,10 @@ def generate_plan(source_dir, state, only=None):
     state_artifacts = state.get("artifacts", {}) if state else {}
 
     # Read all local artifacts in deployment order
-    local_artifacts = {}
-    modules_used = []
+    local_artifacts: dict[str, Any] = {}
     for mod in DEPLOY_ORDER:
         if only and mod.ARTIFACT_TYPE not in only:
             continue
-        modules_used.append(mod)
         artifacts = mod.read_local(source_dir)
         local_artifacts.update(artifacts)
 
@@ -51,7 +52,7 @@ def generate_plan(source_dir, state, only=None):
     deletes = [c for c in changes if c["action"] == DELETE]
     noops = [c for c in changes if c["action"] == NOOP]
 
-    plan = {
+    plan: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_dir": source_dir,
         "summary": {
@@ -65,7 +66,7 @@ def generate_plan(source_dir, state, only=None):
     return plan
 
 
-def order_changes(changes):
+def order_changes(changes: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Order changes for execution: creates/updates in deploy order, deletes in reverse."""
     # Build type order index
     type_order = {mod.ARTIFACT_TYPE: i for i, mod in enumerate(DEPLOY_ORDER)}
@@ -81,7 +82,7 @@ def order_changes(changes):
     return creates_updates + deletes
 
 
-def print_plan(plan, verbose=False):
+def print_plan(plan: dict[str, Any], verbose: bool = False) -> None:
     """Print plan to console in Terraform-style format."""
     summary = plan["summary"]
     changes = plan["changes"]
@@ -108,7 +109,7 @@ def print_plan(plan, verbose=False):
     print()
 
 
-def save_plan(plan, path):
+def save_plan(plan: dict[str, Any], path: str) -> None:
     """Save plan to a JSON file."""
     with open(path, "w") as f:
         json.dump(plan, f, indent=2)
@@ -116,7 +117,8 @@ def save_plan(plan, path):
     print(f"Plan saved to {path}")
 
 
-def load_plan(path):
+def load_plan(path: str) -> dict[str, Any]:
     """Load a plan from a JSON file."""
     with open(path, "r") as f:
-        return json.load(f)
+        result: dict[str, Any] = json.load(f)
+        return result

@@ -1,14 +1,17 @@
 """Product-level policy artifact module."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 from apy_ops.artifact_reader import read_json, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "product_policy"
 SOURCE_SUBDIR = "products"
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     base = os.path.join(source_dir, SOURCE_SUBDIR)
     if not os.path.isdir(base):
         return {}
@@ -39,7 +42,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     artifacts = {}
     try:
         products = client.list("/products")
@@ -62,7 +65,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     for artifact in artifacts.values():
         prod_id = artifact["id"]
@@ -74,9 +77,9 @@ def write_local(output_dir, artifacts):
             f.write(content)
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     return {"properties": artifact["properties"]}
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     return f"/products/{artifact_id}/policies/policy"

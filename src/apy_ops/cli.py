@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """CLI entry point for APIM deployment tool."""
 
+from __future__ import annotations
+
 import argparse
 import os
 import sys
+from typing import Any
 
 from apy_ops.apim_client import ApimClient
 from apy_ops.state import get_backend, empty_state
@@ -16,7 +19,7 @@ DEFAULT_SOURCE_DIR = "."
 DEFAULT_OUTPUT_DIR = "./api-management"
 
 
-def add_common_args(parser):
+def add_common_args(parser: argparse.ArgumentParser) -> None:
     """Add arguments shared across subcommands."""
     # State backend
     parser.add_argument("--backend", choices=["local", "azure"],
@@ -32,7 +35,7 @@ def add_common_args(parser):
     parser.add_argument("--tenant-id", help="Azure AD tenant ID")
 
 
-def add_apim_args(parser, required=True):
+def add_apim_args(parser: argparse.ArgumentParser, required: bool = True) -> None:
     """Add APIM target arguments."""
     parser.add_argument("--subscription-id", required=required,
                         help="Azure subscription ID (or APIM_SUBSCRIPTION_ID env var)")
@@ -42,7 +45,7 @@ def add_apim_args(parser, required=True):
                         help="APIM service name (or APIM_SERVICE_NAME env var)")
 
 
-def _resolve_apim_args(args, state=None):
+def _resolve_apim_args(args: argparse.Namespace, state: dict[str, Any] | None = None) -> None:
     """Resolve APIM connection args from flags → env vars → state file."""
     args.subscription_id = (
         getattr(args, "subscription_id", None)
@@ -61,7 +64,7 @@ def _resolve_apim_args(args, state=None):
     )
 
 
-def _require_apim_args(args):
+def _require_apim_args(args: argparse.Namespace) -> None:
     """Error if APIM connection args are still missing."""
     missing = []
     if not args.subscription_id:
@@ -78,7 +81,7 @@ def _require_apim_args(args):
         sys.exit(1)
 
 
-def cmd_init(args):
+def cmd_init(args: argparse.Namespace) -> None:
     """Initialize an empty state file."""
     backend = get_backend(args)
     sub_id = getattr(args, "subscription_id", None) or ""
@@ -92,7 +95,7 @@ def cmd_init(args):
         print(f"  Backend: azure")
 
 
-def cmd_plan(args):
+def cmd_plan(args: argparse.Namespace) -> None:
     """Generate a plan showing what would change."""
     backend = get_backend(args)
     state = backend.read()
@@ -113,7 +116,7 @@ def cmd_plan(args):
         sys.exit(2)
 
 
-def cmd_apply(args):
+def cmd_apply(args: argparse.Namespace) -> None:
     """Apply changes to APIM."""
     backend = get_backend(args)
     source_dir = getattr(args, "source_dir", None) or DEFAULT_SOURCE_DIR
@@ -186,7 +189,7 @@ def cmd_apply(args):
     sys.exit(1 if error else 0)
 
 
-def cmd_extract(args):
+def cmd_extract(args: argparse.Namespace) -> None:
     """Extract artifacts from live APIM."""
     # Try to resolve APIM args from state if available
     state = None
@@ -216,14 +219,14 @@ def cmd_extract(args):
     extract(client, output_dir, only=only, backend=backend, state=state)
 
 
-def cmd_force_unlock(args):
+def cmd_force_unlock(args: argparse.Namespace) -> None:
     """Force-unlock a stuck state file."""
     backend = get_backend(args)
     backend.force_unlock()
     print("Lock released.")
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Azure APIM deployment tool (Terraform-style plan & apply)",
     )

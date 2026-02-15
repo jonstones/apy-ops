@@ -1,8 +1,12 @@
 """Execute plan against APIM REST API, update state after each success."""
 
+from __future__ import annotations
+
 import sys
 from datetime import datetime, timezone
+from typing import Any
 
+from apy_ops.apim_client import ApimClient
 from apy_ops.artifacts import ARTIFACT_TYPES
 from apy_ops.artifacts.apis import to_operation_payloads
 from apy_ops.differ import CREATE, UPDATE, DELETE
@@ -13,7 +17,9 @@ CHECK = "\u2713"
 CROSS = "\u2717"
 
 
-def apply_plan(plan, client, backend, state, force=False, source_dir=None, only=None):
+def apply_plan(plan: dict[str, Any] | None, client: ApimClient, backend: Any, state: dict[str, Any],
+               force: bool = False, source_dir: str | None = None,
+               only: list[str] | None = None) -> tuple[int, int, str | None]:
     """Execute all changes in the plan.
 
     Args:
@@ -32,6 +38,7 @@ def apply_plan(plan, client, backend, state, force=False, source_dir=None, only=
         success, total, errors = apply_force(source_dir, client, backend, state, only=only)
         return (success, total, "; ".join(errors) if errors else None)
 
+    assert plan is not None
     changes = [c for c in plan["changes"] if c["action"] in (CREATE, UPDATE, DELETE)]
     if not changes:
         print("\nNo changes to apply.\n")
@@ -71,7 +78,7 @@ def apply_plan(plan, client, backend, state, force=False, source_dir=None, only=
     return success, total, None
 
 
-def _apply_change(change, client):
+def _apply_change(change: dict[str, Any], client: ApimClient) -> None:
     """Execute a single change against the APIM REST API."""
     action = change["action"]
     artifact_type = change["type"]
@@ -94,7 +101,7 @@ def _apply_change(change, client):
         client.delete(path)
 
 
-def _update_state(change, state):
+def _update_state(change: dict[str, Any], state: dict[str, Any]) -> None:
     """Update the state dict after a successful change."""
     key = change["key"]
     action = change["action"]
@@ -111,17 +118,21 @@ def _update_state(change, state):
         state["artifacts"].pop(key, None)
 
 
-def apply_force(source_dir, client, backend, state, only=None):
+def apply_force(source_dir: str | None, client: ApimClient, backend: Any, state: dict[str, Any],
+                only: list[str] | None = None) -> tuple[int, int, list[str]]:
     """Force mode: push ALL local artifacts to APIM, rebuild state from scratch.
 
     Ignores state diff entirely. Used when state is stale due to manual APIM changes.
     """
     from apy_ops.artifacts import DEPLOY_ORDER
+    from apy_ops.planner import order_changes  # noqa: F811 - import here to avoid circular
+
+    assert source_dir is not None
 
     state["artifacts"] = {}
     total = 0
     success = 0
-    errors = []
+    errors: list[str] = []
 
     print("\nForce apply: pushing ALL artifacts...\n")
 

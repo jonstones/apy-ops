@@ -1,12 +1,17 @@
 """Extract artifacts from live APIM instance, write as APIOps-format files."""
 
-from datetime import datetime, timezone
+from __future__ import annotations
 
+from datetime import datetime, timezone
+from typing import Any
+
+from apy_ops.apim_client import ApimClient
 from apy_ops.artifacts import DEPLOY_ORDER
 from apy_ops.artifact_reader import compute_hash
 
 
-def extract(client, output_dir, only=None, backend=None, state=None):
+def extract(client: ApimClient, output_dir: str, only: list[str] | None = None,
+            backend: Any = None, state: dict[str, Any] | None = None) -> dict[str, Any]:
     """Extract all artifacts from APIM and write to disk.
 
     Args:
@@ -19,7 +24,7 @@ def extract(client, output_dir, only=None, backend=None, state=None):
     Returns:
         dict of all extracted artifacts
     """
-    all_artifacts = {}
+    all_artifacts: dict[str, Any] = {}
 
     for mod in DEPLOY_ORDER:
         if only and mod.ARTIFACT_TYPE not in only:

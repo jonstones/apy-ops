@@ -1,14 +1,17 @@
 """API-level policy artifact module."""
+from __future__ import annotations
 
 import json
 import os
+from typing import Any
+
 from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extract_id_from_path
 
 ARTIFACT_TYPE = "api_policy"
 SOURCE_SUBDIR = "apis"
 
 
-def read_local(source_dir):
+def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
     base = os.path.join(source_dir, SOURCE_SUBDIR)
     if not os.path.isdir(base):
         return {}
@@ -43,7 +46,7 @@ def read_local(source_dir):
     return artifacts
 
 
-def read_live(client):
+def read_live(client: Any) -> dict[str, dict[str, Any]]:
     from apy_ops.artifacts.apis import read_live as read_apis_live
     # We need to list APIs first, then check each for a policy
     artifacts = {}
@@ -68,7 +71,7 @@ def read_live(client):
     return artifacts
 
 
-def write_local(output_dir, artifacts):
+def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     for artifact in artifacts.values():
         api_id = artifact["id"]
@@ -83,7 +86,7 @@ def write_local(output_dir, artifacts):
             f.write(content)
 
 
-def _find_api_dir(base, api_id):
+def _find_api_dir(base: str, api_id: str) -> str | None:
     """Find the API directory that matches the given API ID."""
     if not os.path.isdir(base):
         return None
@@ -95,9 +98,9 @@ def _find_api_dir(base, api_id):
     return None
 
 
-def to_rest_payload(artifact):
+def to_rest_payload(artifact: dict[str, Any]) -> dict[str, Any]:
     return {"properties": artifact["properties"]}
 
 
-def resource_path(artifact_id):
+def resource_path(artifact_id: str) -> str:
     return f"/apis/{artifact_id}/policies/policy"
