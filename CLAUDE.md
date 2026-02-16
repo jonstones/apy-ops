@@ -361,6 +361,62 @@ Key REST patterns:
 | Policy Fragment | `/policyFragments/{id}` | PUT | DELETE |
 | Subscription | `/subscriptions/{id}` | PUT | DELETE |
 
+## Artifact File Format
+
+apy-ops uses the **APIOPS directory-based format**. Each artifact type is organized in a directory with subdirectories for each artifact ID:
+
+```
+api-management/
+├── namedValues/              # Named Values (secrets, config)
+│   ├── api-key/
+│   │   └── namedValueInformation.json
+│   └── db-connection-string/
+│       └── namedValueInformation.json
+├── backends/                 # Service backends
+│   ├── payment-service/
+│   │   └── backendInformation.json
+│   └── inventory-service/
+│       └── backendInformation.json
+├── tags/                     # Tags
+│   ├── production/
+│   │   └── tagInformation.json
+│   └── internal/
+│       └── tagInformation.json
+├── products/                 # Products
+│   ├── starter/
+│   │   ├── productInformation.json
+│   │   └── apis.json
+│   └── enterprise/
+│       ├── productInformation.json
+│       └── groups.json
+├── apis/                     # APIs (complex: includes operations & specs)
+│   └── payment-api__1.0_echo-api-abc123def456/
+│       ├── apiInformation.json
+│       ├── specification.json
+│       └── operations/
+│           ├── get-payments.json
+│           └── post-payment.json
+```
+
+**Format Details:**
+- Each artifact lives in its own directory named by its ID: `{type}/{id}/`
+- Artifact metadata stored in `{type}Information.json` (e.g., `namedValueInformation.json`)
+- Standardized information file names per type:
+  - Named Values: `namedValueInformation.json`
+  - Backends: `backendInformation.json`
+  - Loggers: `loggerInformation.json`
+  - Diagnostics: `diagnosticInformation.json`
+  - Tags: `tagInformation.json`
+  - Groups: `groupInformation.json`
+  - Subscriptions: `subscriptionInformation.json`
+  - Version Sets: `versionSetInformation.json`
+  - Products: `productInformation.json`
+  - Gateways: `gatewayInformation.json`
+  - APIs: `apiInformation.json`
+  - Service Policy: `policy.xml`
+- Complex artifacts (APIs, Products) can include child files/directories for associated resources
+- Cross-references use `$ref-` prefixes (e.g., `$ref-policy`, `$ref-description`)
+
 ## APIOps Naming Conventions
 - API dirs: `[DisplayName]__[Version]_[InternalId]-[HASH]`
 - Operation files: `[METHOD]__[urlTemplate]_[operationId]-[HASH].[ext]`
