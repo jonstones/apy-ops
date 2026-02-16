@@ -62,12 +62,19 @@ apy-ops plan -v
 
 Output:
 ```
+APIM Target:
+  Subscription: 12345678-1234-1234-1234-123456789012
+  Resource Group: my-rg
+  Service: my-apim
+
 Plan: 2 to create, 1 to update, 0 to delete, 5 unchanged.
 
   + api          "Weather API"       (new)
   + named_value  "api-key"           (new)
   ~ product      "Starter"           (changed: subscriptionsLimit 1→5)
 ```
+
+The plan output shows the target APIM details so you know where changes will be deployed. If details are missing, they show as `NOT-SET`.
 
 ### 3. Apply
 
@@ -80,7 +87,7 @@ apy-ops apply
 # With explicit APIM target
 apy-ops apply --subscription-id <SUB> --resource-group <RG> --service-name <APIM>
 
-# Apply a saved plan
+# Apply a saved plan (uses APIM target embedded in the plan file)
 apy-ops apply --plan plan.json
 
 # Skip confirmation (for CI/CD)
@@ -89,6 +96,8 @@ apy-ops apply --auto-approve
 # Force-push all artifacts, ignoring state
 apy-ops apply --force
 ```
+
+**Plan Files**: When you save a plan with `--out plan.json`, it includes the APIM target details. Applying that plan later will use the same target, ensuring deployments go to the intended APIM instance even if the environment changes.
 
 ### 4. Extract
 

@@ -112,6 +112,41 @@ APIM connection details resolve: CLI flag → env var → state file. Only requi
 Plan compares local artifacts (hashed) against the state file — no APIM API calls needed for plan.
 Apply pushes changes to APIM REST API, then updates the state file after each success.
 
+### Plan Files with APIM Metadata
+
+Saved plans (`apy-ops plan --out plan.json`) embed APIM target information:
+
+```json
+{
+  "generated_at": "2026-02-16T09:30:52.404574+00:00",
+  "source_dir": "api-management",
+  "apim": {
+    "subscription_id": "12345678-1234-1234-1234-123456789012",
+    "resource_group": "my-rg",
+    "service_name": "my-apim"
+  },
+  "summary": {
+    "create": 2,
+    "update": 1,
+    "delete": 0,
+    "noop": 5
+  },
+  "changes": [ ... ]
+}
+```
+
+**Benefits:**
+- **Traceability**: Plans document their target APIM instance
+- **Safety**: Applying a saved plan uses the embedded APIM target, preventing accidental deployments to the wrong instance
+- **Portability**: Plans can be generated on CI and applied anywhere with consistent targeting
+
+When applying a saved plan, the APIM target is extracted from the plan file and used automatically:
+```bash
+apy-ops apply --plan my-plan.json  # Uses APIM target from my-plan.json
+```
+
+If APIM details are missing, they show as `NOT-SET` in the plan output and file.
+
 ### State Storage (Two Backends)
 
 State is stored **externally** to the config repo so it survives repo reverts.
@@ -183,6 +218,11 @@ Compares local artifact hashes against state file:
 
 ### Plan Output (console)
 ```
+APIM Target:
+  Subscription: 12345678-1234-1234-1234-123456789012
+  Resource Group: my-rg
+  Service: my-apim
+
 Plan: 2 to create, 3 to update, 0 to delete, 15 unchanged.
 
   + api          "Weather API"           (new)
@@ -193,6 +233,8 @@ Plan: 2 to create, 3 to update, 0 to delete, 15 unchanged.
   . api          "Echo API"             (unchanged)
   . group        "Developers"           (unchanged, built-in)
 ```
+
+The APIM Target section shows where changes will be deployed. Missing details display as `NOT-SET`.
 
 ## Artifact Deployment Order (from APIOps source)
 
