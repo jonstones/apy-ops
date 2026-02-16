@@ -10,6 +10,7 @@ from apy_ops.apim_client import ApimClient
 from apy_ops.artifacts import ARTIFACT_TYPES
 from apy_ops.artifacts.apis import to_operation_payloads
 from apy_ops.differ import CREATE, UPDATE, DELETE
+from apy_ops.exceptions import ApimTransientError, ApimPermanentError
 from apy_ops.planner import order_changes
 
 # Console symbols
@@ -65,7 +66,22 @@ def apply_plan(plan: dict[str, Any] | None, client: ApimClient, backend: Any, st
             backend.write(state)
             print(f"  {CHECK}")
             success += 1
+        except ApimTransientError as e:
+            # Transient errors (exhausted retries) — might work if retried later
+            error_msg = _format_error_message(e, "Transient error (exhausted retries)")
+            print(f"  {CROSS} ERROR: {error_msg}")
+            print(f"\nApply failed. {success} of {total} changes applied successfully.")
+            print("State file updated. Re-run 'plan' to see remaining changes.\n")
+            return success, total, error_msg
+        except ApimPermanentError as e:
+            # Permanent errors — won't work without fixing the issue
+            error_msg = _format_error_message(e, "Permanent error")
+            print(f"  {CROSS} ERROR: {error_msg}")
+            print(f"\nApply failed. {success} of {total} changes applied successfully.")
+            print("State file updated. Re-run 'plan' to see remaining changes.\n")
+            return success, total, error_msg
         except Exception as e:
+            # Unexpected errors
             error_msg = str(e)
             print(f"  {CROSS} ERROR: {error_msg}")
             print(f"\nApply failed. {success} of {total} changes applied successfully.")
@@ -118,6 +134,27 @@ def _update_state(change: dict[str, Any], state: dict[str, Any]) -> None:
         state["artifacts"].pop(key, None)
 
 
+def _format_error_message(exc: Exception, context: str = "Error") -> str:
+    """Format an exception message with error details.
+
+    Args:
+        exc: ApimError exception or other exception
+        context: Context description (e.g., "Transient error", "Permanent error")
+
+    Returns:
+        Formatted error message
+    """
+    msg = f"{context}: {exc.message if hasattr(exc, 'message') else str(exc)}"
+
+    if hasattr(exc, "error_code") and exc.error_code:
+        msg += f" [{exc.error_code}]"
+
+    if hasattr(exc, "request_id") and exc.request_id:
+        msg += f" (req-id: {exc.request_id})"
+
+    return msg
+
+
 def apply_force(source_dir: str | None, client: ApimClient, backend: Any, state: dict[str, Any],
                 only: list[str] | None = None) -> tuple[int, int, list[str]]:
     """Force mode: push ALL local artifacts to APIM, rebuild state from scratch.
@@ -165,6 +202,14 @@ def apply_force(source_dir: str | None, client: ApimClient, backend: Any, state:
                 backend.write(state)
                 print(f"  {CHECK}")
                 success += 1
+            except ApimTransientError as e:
+                error_detail = _format_error_message(e, "Transient error (exhausted retries)")
+                print(f"  {CROSS} ERROR: {error_detail}")
+                errors.append(f"{type_name} \"{name}\": {error_detail}")
+            except ApimPermanentError as e:
+                error_detail = _format_error_message(e, "Permanent error")
+                print(f"  {CROSS} ERROR: {error_detail}")
+                errors.append(f"{type_name} \"{name}\": {error_detail}")
             except Exception as e:
                 print(f"  {CROSS} ERROR: {e}")
                 errors.append(f"{type_name} \"{name}\": {e}")
