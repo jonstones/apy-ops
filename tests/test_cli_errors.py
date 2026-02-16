@@ -137,6 +137,7 @@ class TestResolveApimArgs:
 
 
 class TestCmdInit:
+    # Tests that init creates a new state file with provided APIM details.
     def test_cmd_init_creates_state(self, tmp_path):
         from apy_ops.cli import cmd_init
         state_file = str(tmp_path / "state.json")
@@ -153,6 +154,7 @@ class TestCmdInit:
             data = json.load(f)
         assert data["subscription_id"] == "sub-1"
 
+    # Tests that init uses empty strings when APIM details are not provided.
     def test_cmd_init_default_empty_strings(self, tmp_path):
         from apy_ops.cli import cmd_init
         state_file = str(tmp_path / "state.json")
@@ -168,6 +170,7 @@ class TestCmdInit:
             data = json.load(f)
         assert data["subscription_id"] == ""
 
+    # Tests that reinitializing without --force fails with clear error message.
     def test_cmd_init_reinit_without_force_exits_1(self, tmp_path):
         """Calling init on existing state without --force should exit 1."""
         state_file = str(tmp_path / "state.json")
@@ -178,6 +181,7 @@ class TestCmdInit:
         assert rc == 1
         assert "already exists" in err
 
+    # Tests that reinitializing with --force overwrites the existing state file.
     def test_cmd_init_reinit_with_force_succeeds(self, tmp_path):
         """Calling init with --force should overwrite existing state."""
         state_file = str(tmp_path / "state.json")
