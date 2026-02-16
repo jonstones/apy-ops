@@ -7,11 +7,13 @@ from apy_ops.differ import CREATE, UPDATE, DELETE, NOOP
 
 
 def _make_source(tmp_path, artifacts):
-    """Create a minimal APIOps source directory with named values."""
+    """Create a minimal APIOps source directory with named values in directory format."""
     nv_dir = tmp_path / "namedValues"
     nv_dir.mkdir()
     for name, props in artifacts.items():
-        (nv_dir / f"{name}.json").write_text(json.dumps(props))
+        item_dir = nv_dir / name
+        item_dir.mkdir()
+        (item_dir / "namedValueInformation.json").write_text(json.dumps(props))
     return str(tmp_path)
 
 
@@ -44,13 +46,13 @@ class TestGeneratePlan:
 
     # Tests that generate_plan respects only filter to plan specific artifact types.
     def test_only_filter(self, tmp_path):
-        # Create both named values and tags
-        nv_dir = tmp_path / "namedValues"
-        nv_dir.mkdir()
-        (nv_dir / "k.json").write_text(json.dumps({"id": "/namedValues/k", "displayName": "k"}))
-        tag_dir = tmp_path / "tags"
-        tag_dir.mkdir()
-        (tag_dir / "t.json").write_text(json.dumps({"id": "/tags/t", "displayName": "t"}))
+        # Create both named values and tags in directory format
+        nv_dir = tmp_path / "namedValues" / "k"
+        nv_dir.mkdir(parents=True)
+        (nv_dir / "namedValueInformation.json").write_text(json.dumps({"id": "/namedValues/k", "displayName": "k"}))
+        tag_dir = tmp_path / "tags" / "t"
+        tag_dir.mkdir(parents=True)
+        (tag_dir / "tagInformation.json").write_text(json.dumps({"id": "/tags/t", "displayName": "t"}))
 
         state = {"artifacts": {}}
         plan = generate_plan(str(tmp_path), state, only=["named_value"])

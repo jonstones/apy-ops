@@ -9,20 +9,34 @@ from apy_ops.artifact_reader import read_json, resolve_refs, compute_hash, extra
 
 ARTIFACT_TYPE = "version_set"
 SOURCE_SUBDIR = "apiVersionSets"
+INFORMATION_FILE = "versionSetInformation.json"
+REST_PATH_PREFIX = "apiVersionSets"
+
+
+def _find_version_sets_dir(source_dir: str) -> str | None:
+    """Find version sets directory, checking both naming conventions."""
+    for name in ["apiVersionSets", "version sets"]:
+        path = os.path.join(source_dir, name)
+        if os.path.isdir(path):
+            return path
+    return None
 
 
 def read_local(source_dir: str) -> dict[str, dict[str, Any]]:
-    base = os.path.join(source_dir, SOURCE_SUBDIR)
-    if not os.path.isdir(base):
+    base = _find_version_sets_dir(source_dir)
+    if base is None:
         return {}
     artifacts = {}
     for entry in sorted(os.listdir(base)):
-        path = os.path.join(base, entry)
-        if not entry.endswith(".json") or not os.path.isfile(path):
+        entry_path = os.path.join(base, entry)
+        if not os.path.isdir(entry_path):
             continue
-        props = read_json(path)
-        props = resolve_refs(props, base)
-        vs_id = extract_id_from_path(props.get("id", entry.replace(".json", "")))
+        info_path = os.path.join(entry_path, INFORMATION_FILE)
+        if not os.path.isfile(info_path):
+            continue
+        props = read_json(info_path)
+        props = resolve_refs(props, entry_path)
+        vs_id = extract_id_from_path(props.get("id", entry))
         key = f"{ARTIFACT_TYPE}:{vs_id}"
         artifacts[key] = {
             "type": ARTIFACT_TYPE,
@@ -53,10 +67,13 @@ def write_local(output_dir: str, artifacts: dict[str, dict[str, Any]]) -> None:
     base = os.path.join(output_dir, SOURCE_SUBDIR)
     os.makedirs(base, exist_ok=True)
     for artifact in artifacts.values():
+        artifact_id = artifact["id"]
+        artifact_dir = os.path.join(base, artifact_id)
+        os.makedirs(artifact_dir, exist_ok=True)
         props = dict(artifact["properties"])
-        props["id"] = f"/apiVersionSets/{artifact['id']}"
-        path = os.path.join(base, f"{artifact['id']}.json")
-        with open(path, "w") as f:
+        props["id"] = f"/{REST_PATH_PREFIX}/{artifact_id}"
+        info_path = os.path.join(artifact_dir, INFORMATION_FILE)
+        with open(info_path, "w") as f:
             json.dump(props, f, indent=2)
             f.write("\n")
 

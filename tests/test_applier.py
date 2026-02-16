@@ -274,9 +274,9 @@ class TestApplyForce:
 
     # Tests that apply_force reads and pushes all local artifacts.
     def test_force_reads_and_pushes_all(self, tmp_path):
-        nv_dir = tmp_path / "namedValues"
-        nv_dir.mkdir()
-        (nv_dir / "k1.json").write_text(json.dumps({
+        nv_dir = tmp_path / "namedValues" / "k1"
+        nv_dir.mkdir(parents=True)
+        (nv_dir / "namedValueInformation.json").write_text(json.dumps({
             "id": "/namedValues/k1", "displayName": "k1", "value": "v",
         }))
 
@@ -293,12 +293,14 @@ class TestApplyForce:
 
     # Tests that apply_force continues processing on error and returns error list.
     def test_force_continues_on_error(self, tmp_path):
-        nv_dir = tmp_path / "namedValues"
-        nv_dir.mkdir()
-        (nv_dir / "k1.json").write_text(json.dumps({
+        nv_dir1 = tmp_path / "namedValues" / "k1"
+        nv_dir1.mkdir(parents=True)
+        (nv_dir1 / "namedValueInformation.json").write_text(json.dumps({
             "id": "/namedValues/k1", "displayName": "k1", "value": "v",
         }))
-        (nv_dir / "k2.json").write_text(json.dumps({
+        nv_dir2 = tmp_path / "namedValues" / "k2"
+        nv_dir2.mkdir(parents=True)
+        (nv_dir2 / "namedValueInformation.json").write_text(json.dumps({
             "id": "/namedValues/k2", "displayName": "k2", "value": "v",
         }))
 
@@ -314,14 +316,14 @@ class TestApplyForce:
 
     # Tests that apply_force respects only filter to process specific artifact types.
     def test_force_only_filter(self, tmp_path):
-        nv_dir = tmp_path / "namedValues"
-        nv_dir.mkdir()
-        (nv_dir / "k1.json").write_text(json.dumps({
+        nv_dir = tmp_path / "namedValues" / "k1"
+        nv_dir.mkdir(parents=True)
+        (nv_dir / "namedValueInformation.json").write_text(json.dumps({
             "id": "/namedValues/k1", "displayName": "k1", "value": "v",
         }))
-        tag_dir = tmp_path / "tags"
-        tag_dir.mkdir()
-        (tag_dir / "t1.json").write_text(json.dumps({
+        tag_dir = tmp_path / "tags" / "t1"
+        tag_dir.mkdir(parents=True)
+        (tag_dir / "tagInformation.json").write_text(json.dumps({
             "id": "/tags/t1", "displayName": "t1",
         }))
 

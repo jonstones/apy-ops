@@ -34,9 +34,9 @@ class TestPlanErrors:
     def test_plan_with_changes_exits_2(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         source_dir = str(tmp_path / "source")
-        nv_dir = os.path.join(source_dir, "namedValues")
+        nv_dir = os.path.join(source_dir, "namedValues", "k")
         os.makedirs(nv_dir)
-        with open(os.path.join(nv_dir, "k.json"), "w") as f:
+        with open(os.path.join(nv_dir, "namedValueInformation.json"), "w") as f:
             json.dump({"id": "/namedValues/k", "displayName": "k", "value": "v"}, f)
         run_cli("init", "--backend", "local", "--state-file", state_file)
         rc, out, err = run_cli(
@@ -253,9 +253,9 @@ class TestCmdPlan:
     def test_cmd_plan_saves_to_file(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         plan_file = str(tmp_path / "plan.json")
-        nv_dir = tmp_path / "source" / "namedValues"
+        nv_dir = tmp_path / "source" / "namedValues" / "k"
         nv_dir.mkdir(parents=True)
-        (nv_dir / "k.json").write_text(json.dumps({
+        (nv_dir / "namedValueInformation.json").write_text(json.dumps({
             "id": "/namedValues/k", "displayName": "k", "value": "v",
         }))
         run_cli("init", "--backend", "local", "--state-file", state_file)

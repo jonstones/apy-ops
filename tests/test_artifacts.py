@@ -22,6 +22,21 @@ def _make_artifact(artifact_type, artifact_id, props):
     }
 
 
+def _get_info_filename(artifact_type):
+    """Map artifact type to its directory-based information file name."""
+    mapping = {
+        "named_value": "namedValueInformation.json",
+        "tag": "tagInformation.json",
+        "backend": "backendInformation.json",
+        "logger": "loggerInformation.json",
+        "diagnostic": "diagnosticInformation.json",
+        "group": "groupInformation.json",
+        "subscription": "subscriptionInformation.json",
+        "version_set": "versionSetInformation.json",
+    }
+    return mapping[artifact_type]
+
+
 def _mock_client_list(items_by_path):
     """Return a MagicMock client whose .list(path) returns items_by_path[path]."""
     client = MagicMock()
@@ -42,7 +57,7 @@ def _mock_client_get(data_by_path):
 
 
 # ===================================================================
-# 1. Simple flat-file modules
+# 1. Simple directory-based modules
 # ===================================================================
 
 _SIMPLE_MODULES = [
@@ -58,7 +73,7 @@ _SIMPLE_MODULES = [
 
 
 class TestSimpleModules:
-    """Parametrized tests covering all 8 simple flat-file artifact modules."""
+    """Parametrized tests covering all 8 simple directory-based artifact modules."""
 
     @pytest.fixture(params=_SIMPLE_MODULES, ids=[m[1] for m in _SIMPLE_MODULES])
     def mod_info(self, request):
@@ -67,12 +82,13 @@ class TestSimpleModules:
         mod = importlib.import_module(mod_path)
         return mod, art_type, subdir, rest_prefix
 
-    # Tests that read_local parses all simple flat-file artifact modules from disk.
+    # Tests that read_local parses all simple directory-based artifact modules from disk.
     def test_read_local(self, tmp_path, mod_info):
         mod, art_type, subdir, rest_prefix = mod_info
-        d = tmp_path / subdir
-        d.mkdir()
-        (d / "item1.json").write_text(json.dumps({
+        item_dir = tmp_path / subdir / "item1"
+        item_dir.mkdir(parents=True)
+        info_filename = _get_info_filename(art_type)
+        (item_dir / info_filename).write_text(json.dumps({
             "id": f"{rest_prefix}/item1",
             "displayName": "Item 1",
         }))
@@ -96,7 +112,8 @@ class TestSimpleModules:
         out = tmp_path / "out"
         out.mkdir()
         mod.write_local(str(out), artifacts)
-        path = out / subdir / "x1.json"
+        info_filename = _get_info_filename(art_type)
+        path = out / subdir / "x1" / info_filename
         assert path.is_file()
         data = json.loads(path.read_text())
         assert data["displayName"] == "X1"
@@ -538,6 +555,70 @@ class TestApis:
         spec.write_text("<wsdl/>")
         fmt, _ = _detect_spec_format(str(spec))
         assert fmt == "wsdl"
+
+
+# ===================================================================
+# 4b. API Revisions (nested under APIs)
+# ===================================================================
+
+class TestApiRevisions:
+    # Tests that read_local parses api-revision artifacts from releases subdirectory.
+    def test_read_local(self, tmp_path):
+        from apy_ops.artifacts.api_revisions import read_local
+        api_dir = tmp_path / "apis" / "echo"
+        releases_dir = api_dir / "releases"
+        releases_dir.mkdir(parents=True)
+        (api_dir / "apiInformation.json").write_text(json.dumps({
+            "id": "/apis/echo", "displayName": "Echo",
+        }))
+        (releases_dir / "v1").mkdir()
+        (releases_dir / "v1" / "apiReleaseInformation.json").write_text(json.dumps({
+            "id": "/apis/echo/releases/v1", "notes": "Initial release",
+        }))
+        result = read_local(str(tmp_path))
+        assert "api_revision:echo/v1" in result
+
+    # Tests that write_local saves api-revision to releases subdirectory.
+    def test_write_local(self, tmp_path):
+        from apy_ops.artifacts.api_revisions import write_local
+        api_dir = tmp_path / "apis" / "echo"
+        api_dir.mkdir(parents=True)
+        artifacts = {
+            "api_revision:echo/v1": _make_artifact("api_revision", "echo/v1", {
+                "notes": "Initial release",
+            }),
+        }
+        write_local(str(tmp_path), artifacts)
+        path = api_dir / "releases" / "v1" / "apiReleaseInformation.json"
+        assert path.is_file()
+        data = json.loads(path.read_text())
+        assert data["id"] == "/apis/echo/releases/v1"
+
+    # Tests that to_rest_payload generates api-revision REST API body.
+    def test_to_rest_payload(self):
+        from apy_ops.artifacts.api_revisions import to_rest_payload
+        artifact = _make_artifact("api_revision", "echo/v1", {
+            "id": "/apis/echo/releases/v1", "notes": "Initial release",
+        })
+        payload = to_rest_payload(artifact)
+        assert "id" not in payload["properties"]
+        assert payload["properties"]["notes"] == "Initial release"
+
+    # Tests that resource_path generates correct api-revision REST API path.
+    def test_resource_path(self):
+        from apy_ops.artifacts.api_revisions import resource_path
+        assert resource_path("echo/v1") == "/apis/echo/releases/v1"
+
+    # Tests that read_live fetches api-revisions from APIM REST API.
+    def test_read_live(self):
+        from apy_ops.artifacts.api_revisions import read_live
+        client = MagicMock()
+        client.list.side_effect = lambda path: {
+            "/apis": [{"name": "echo"}],
+            "/apis/echo/releases": [{"name": "v1", "properties": {"notes": "Initial release"}}],
+        }.get(path, [])
+        result = read_live(client)
+        assert "api_revision:echo/v1" in result
 
 
 # ===================================================================

@@ -52,9 +52,9 @@ class TestPlan:
     def test_plan_with_changes_exit_2(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         source_dir = str(tmp_path / "source")
-        nv_dir = os.path.join(source_dir, "namedValues")
+        nv_dir = os.path.join(source_dir, "namedValues", "k")
         os.makedirs(nv_dir)
-        with open(os.path.join(nv_dir, "k.json"), "w") as f:
+        with open(os.path.join(nv_dir, "namedValueInformation.json"), "w") as f:
             json.dump({"id": "/namedValues/k", "displayName": "k", "value": "v"}, f)
         # Init state
         run_cli("init", "--backend", "local", "--state-file", state_file)
