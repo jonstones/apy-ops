@@ -20,6 +20,7 @@ def run_cli(*args):
 
 
 class TestPlanErrors:
+    # Tests that plan exits with 1 when state file doesn't exist.
     def test_plan_missing_state_exits_1(self, tmp_path):
         state_file = str(tmp_path / "nonexistent.json")
         rc, out, err = run_cli(
@@ -29,6 +30,7 @@ class TestPlanErrors:
         assert rc == 1
         assert "State file not found" in err
 
+    # Tests that plan exits with 2 when changes are detected.
     def test_plan_with_changes_exits_2(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         source_dir = str(tmp_path / "source")
@@ -45,6 +47,7 @@ class TestPlanErrors:
 
 
 class TestApplyErrors:
+    # Tests that apply exits with 1 when state file doesn't exist.
     def test_apply_missing_state_exits_1(self, tmp_path):
         state_file = str(tmp_path / "nonexistent.json")
         rc, out, err = run_cli(
@@ -54,6 +57,7 @@ class TestApplyErrors:
         assert rc == 1
         assert "State file not found" in err
 
+    # Tests that apply errors when plan file doesn't exist.
     def test_apply_missing_plan_file_errors(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         run_cli("init", "--backend", "local", "--state-file", state_file)
@@ -66,6 +70,7 @@ class TestApplyErrors:
 
 
 class TestRequireApimArgs:
+    # Tests that apply fails with helpful error message when APIM args are missing.
     def test_require_apim_args_exits_with_message(self, tmp_path, monkeypatch):
         """When APIM args are missing, apply should exit 1 with helpful message."""
         monkeypatch.delenv("APIM_SUBSCRIPTION_ID", raising=False)
@@ -95,6 +100,7 @@ class TestRequireApimArgs:
 
 
 class TestResolveApimArgs:
+    # Tests that APIM args resolve from environment variables.
     def test_resolve_from_env(self, monkeypatch):
         from apy_ops.cli import _resolve_apim_args
         monkeypatch.setenv("APIM_SUBSCRIPTION_ID", "env-sub")
@@ -106,6 +112,7 @@ class TestResolveApimArgs:
         assert args.resource_group == "env-rg"
         assert args.service_name == "env-svc"
 
+    # Tests that CLI flags override environment variables.
     def test_resolve_flag_overrides_env(self, monkeypatch):
         from apy_ops.cli import _resolve_apim_args
         monkeypatch.setenv("APIM_SUBSCRIPTION_ID", "env-sub")
@@ -113,6 +120,7 @@ class TestResolveApimArgs:
         _resolve_apim_args(args)
         assert args.subscription_id == "flag-sub"
 
+    # Tests that APIM args resolve from state file.
     def test_resolve_from_state(self, monkeypatch):
         from apy_ops.cli import _resolve_apim_args
         monkeypatch.delenv("APIM_SUBSCRIPTION_ID", raising=False)
@@ -125,6 +133,7 @@ class TestResolveApimArgs:
         assert args.resource_group == "st-rg"
         assert args.service_name == "st-svc"
 
+    # Tests that resolution priority is flags > environment variables > state file.
     def test_resolve_priority_flag_env_state(self, monkeypatch):
         from apy_ops.cli import _resolve_apim_args
         monkeypatch.setenv("APIM_SUBSCRIPTION_ID", "env-sub")
@@ -210,6 +219,7 @@ class TestCmdInit:
 
 
 class TestCmdForceUnlock:
+    # Tests that force-unlock removes the lock file.
     def test_force_unlock_removes_lock(self, tmp_path):
         from apy_ops.cli import cmd_force_unlock
         state_file = str(tmp_path / "state.json")
@@ -228,6 +238,7 @@ class TestCmdForceUnlock:
 
 
 class TestCmdPlan:
+    # Tests that plan exits with 0 when no changes exist.
     def test_cmd_plan_no_changes_exits_0(self, tmp_path):
         """Plan with no changes exits 0."""
         state_file = str(tmp_path / "state.json")
@@ -238,6 +249,7 @@ class TestCmdPlan:
         )
         assert rc == 0
 
+    # Tests that plan can be saved to a file.
     def test_cmd_plan_saves_to_file(self, tmp_path):
         state_file = str(tmp_path / "state.json")
         plan_file = str(tmp_path / "plan.json")
@@ -259,12 +271,14 @@ class TestCmdPlan:
 
 
 class TestRequireApimArgs:
+    # Tests that _require_apim_args exits when APIM args are missing.
     def test_require_exits_when_missing(self):
         from apy_ops.cli import _require_apim_args
         args = SimpleNamespace(subscription_id=None, resource_group=None, service_name=None)
         with pytest.raises(SystemExit):
             _require_apim_args(args)
 
+    # Tests that _require_apim_args passes when APIM args are present.
     def test_require_passes_when_present(self):
         from apy_ops.cli import _require_apim_args
         args = SimpleNamespace(subscription_id="s", resource_group="r", service_name="n")
