@@ -16,6 +16,7 @@ def _make_source(tmp_path, artifacts):
 
 
 class TestGeneratePlan:
+    # Tests that generate_plan marks all artifacts as CREATE when state is empty.
     def test_empty_state_all_creates(self, tmp_path):
         source = _make_source(tmp_path, {
             "key1": {"id": "/namedValues/key1", "displayName": "key1", "value": "v1"},
@@ -26,6 +27,7 @@ class TestGeneratePlan:
         assert plan["summary"]["update"] == 0
         assert plan["summary"]["delete"] == 0
 
+    # Tests that generate_plan marks all artifacts as NOOP when state matches local.
     def test_matching_state_all_noops(self, tmp_path):
         props = {"id": "/namedValues/key1", "displayName": "key1", "value": "v1"}
         source = _make_source(tmp_path, {"key1": props})
@@ -40,6 +42,7 @@ class TestGeneratePlan:
         assert plan["summary"]["noop"] == 1
         assert plan["summary"]["create"] == 0
 
+    # Tests that generate_plan respects only filter to plan specific artifact types.
     def test_only_filter(self, tmp_path):
         # Create both named values and tags
         nv_dir = tmp_path / "namedValues"
@@ -56,6 +59,7 @@ class TestGeneratePlan:
         assert "named_value" in types
         assert "tag" not in types
 
+    # Tests that generate_plan summary counts match total changes.
     def test_plan_summary_counts(self, tmp_path):
         source = _make_source(tmp_path, {
             "a": {"id": "/namedValues/a", "displayName": "a", "value": "1"},
@@ -68,6 +72,7 @@ class TestGeneratePlan:
 
 
 class TestOrderChanges:
+    # Tests that order_changes places all creates before all deletes.
     def test_creates_before_deletes(self):
         changes = [
             {"action": DELETE, "type": "named_value", "key": "nv:old"},
@@ -77,6 +82,7 @@ class TestOrderChanges:
         assert ordered[0]["action"] == CREATE
         assert ordered[1]["action"] == DELETE
 
+    # Tests that order_changes sorts creates in deployment order.
     def test_creates_in_deploy_order(self):
         changes = [
             {"action": CREATE, "type": "api", "key": "api:x"},
@@ -88,6 +94,7 @@ class TestOrderChanges:
         assert types.index("named_value") < types.index("tag")
         assert types.index("tag") < types.index("api")
 
+    # Tests that order_changes sorts deletes in reverse deployment order.
     def test_deletes_in_reverse_deploy_order(self):
         changes = [
             {"action": DELETE, "type": "named_value", "key": "nv:x"},
@@ -102,6 +109,7 @@ class TestOrderChanges:
 
 
 class TestPrintPlan:
+    # Tests that print_plan displays "No changes" when only noops exist.
     def test_print_plan_no_changes(self, capsys):
         plan = {
             "summary": {"create": 0, "update": 0, "delete": 0, "noop": 5},
@@ -114,6 +122,7 @@ class TestPrintPlan:
         assert "No changes" in captured.out
         assert "0 to create" in captured.out
 
+    # Tests that print_plan displays summary counts and changes.
     def test_print_plan_with_changes(self, capsys):
         plan = {
             "summary": {"create": 1, "update": 1, "delete": 0, "noop": 0},
@@ -129,6 +138,7 @@ class TestPrintPlan:
         assert '"k1"' in captured.out
         assert '"b1"' in captured.out
 
+    # Tests that print_plan in verbose mode displays noop artifacts.
     def test_print_plan_verbose_shows_noop(self, capsys):
         plan = {
             "summary": {"create": 1, "update": 0, "delete": 0, "noop": 1},
@@ -141,6 +151,7 @@ class TestPrintPlan:
         captured = capsys.readouterr()
         assert '"t2"' in captured.out  # noop shown in verbose mode
 
+    # Tests that print_plan hides noop artifacts by default.
     def test_print_plan_hides_noop_by_default(self, capsys):
         plan = {
             "summary": {"create": 1, "update": 0, "delete": 0, "noop": 1},
@@ -156,6 +167,7 @@ class TestPrintPlan:
 
 
 class TestSaveLoadPlan:
+    # Tests that save_plan and load_plan roundtrip plan data correctly.
     def test_save_and_load_roundtrip(self, tmp_path):
         plan = {
             "generated_at": "2025-01-01T00:00:00",

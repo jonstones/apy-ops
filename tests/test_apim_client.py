@@ -19,16 +19,19 @@ def client():
 
 
 class TestInit:
+    # Tests that base_url contains subscription, resource group, and service name.
     def test_base_url(self, client):
         assert "sub-1" in client.base_url
         assert "rg-1" in client.base_url
         assert "apim-1" in client.base_url
 
+    # Tests that service principal credentials are created correctly.
     def test_service_principal_auth(self):
         with patch("apy_ops.apim_client.ClientSecretCredential") as mock_sp:
             c = ApimClient("s", "r", "a", client_id="cid", client_secret="sec", tenant_id="tid")
             mock_sp.assert_called_once_with("tid", "cid", "sec")
 
+    # Tests that DefaultAzureCredential is used when no service principal is provided.
     def test_default_credential_when_no_sp(self):
         with patch("apy_ops.apim_client.DefaultAzureCredential") as mock_def:
             c = ApimClient("s", "r", "a")
@@ -36,6 +39,7 @@ class TestInit:
 
 
 class TestGetToken:
+    # Tests that token is cached and not re-fetched until expiry.
     def test_get_token_caches(self, client):
         with patch.object(client, "_credential") as mock_cred:
             mock_token = MagicMock()
@@ -49,6 +53,7 @@ class TestGetToken:
             assert t1 == "tok1"
             assert t2 == "tok1"
 
+    # Tests that token is refreshed when expired.
     def test_get_token_refreshes_when_expired(self, client):
         with patch.object(client, "_credential") as mock_cred:
             mock_token = MagicMock()
@@ -62,6 +67,7 @@ class TestGetToken:
 
 
 class TestGet:
+    # Tests that GET request returns parsed JSON response.
     @patch("apy_ops.apim_client.requests.request")
     def test_get_returns_json(self, mock_request, client):
         mock_resp = MagicMock()
@@ -72,6 +78,7 @@ class TestGet:
         assert result["name"] == "test"
         mock_resp.raise_for_status.assert_called_once()
 
+    # Tests that GET request raises exception on HTTP error.
     @patch("apy_ops.apim_client.requests.request")
     def test_get_raises_on_error(self, mock_request, client):
         mock_resp = MagicMock()
@@ -83,6 +90,7 @@ class TestGet:
 
 
 class TestList:
+    # Tests that list returns items from the value array.
     @patch("apy_ops.apim_client.requests.get")
     def test_list_returns_items(self, mock_get, client):
         mock_resp = MagicMock()
@@ -95,6 +103,7 @@ class TestList:
         assert len(result) == 2
         assert result[0]["name"] == "a"
 
+    # Tests that list handles pagination through nextLink.
     @patch("apy_ops.apim_client.requests.get")
     def test_list_pagination(self, mock_get, client):
         page1 = MagicMock()
@@ -116,6 +125,7 @@ class TestList:
 
 
 class TestPut:
+    # Tests that PUT request returns parsed JSON response.
     @patch("apy_ops.apim_client.requests.request")
     def test_put_returns_json(self, mock_request, client):
         mock_resp = MagicMock()
@@ -126,6 +136,7 @@ class TestPut:
         result = client.put("/apis/test", {"properties": {}})
         assert result["name"] == "test"
 
+    # Tests that PUT request returns None for 204 No Content response.
     @patch("apy_ops.apim_client.requests.request")
     def test_put_empty_content_returns_none(self, mock_request, client):
         mock_resp = MagicMock()
@@ -137,6 +148,7 @@ class TestPut:
 
 
 class TestDelete:
+    # Tests that DELETE request succeeds without raising.
     @patch("apy_ops.apim_client.requests.delete")
     def test_delete_success(self, mock_delete, client):
         mock_resp = MagicMock()
@@ -144,6 +156,7 @@ class TestDelete:
         mock_delete.return_value = mock_resp
         client.delete("/apis/test")  # should not raise
 
+    # Tests that DELETE request handles 404 gracefully without raising.
     @patch("apy_ops.apim_client.requests.delete")
     def test_delete_404_is_ok(self, mock_delete, client):
         mock_resp = MagicMock()
@@ -153,6 +166,7 @@ class TestDelete:
 
 
 class TestRetry:
+    # Tests that client retries on 429 rate limit with exponential backoff.
     @patch("apy_ops.apim_client.time.sleep")
     @patch("apy_ops.apim_client.requests.request")
     def test_retry_on_429(self, mock_request, mock_sleep, client):

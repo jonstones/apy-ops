@@ -13,6 +13,7 @@ from apy_ops.differ import CREATE, UPDATE, DELETE
 class TestApplyPlanForce:
     """Test that apply_plan(force=True) delegates to apply_force and returns correct shape."""
 
+    # Tests that apply_plan with force=True delegates to apply_force and returns correct shape.
     def test_force_true_calls_apply_force_with_args(self):
         client = MagicMock()
         backend = MagicMock()
@@ -32,6 +33,7 @@ class TestApplyPlanForce:
         )
         assert result == (5, 5, None)
 
+    # Tests that apply_plan with force=True returns error string when apply_force has errors.
     def test_force_true_returns_error_string_when_apply_force_has_errors(self):
         client = MagicMock()
         backend = MagicMock()
@@ -52,6 +54,7 @@ class TestApplyPlanForce:
 class TestApplyPlanErrorPath:
     """Test apply_plan stops on first error and returns error info."""
 
+    # Tests that apply_plan stops on first error and returns error info.
     def test_apply_stops_on_first_error(self):
         from apy_ops.differ import CREATE
         client = MagicMock()
@@ -86,6 +89,7 @@ class TestApplyPlanErrorPath:
         assert error is not None
         assert "400 Bad Request" in error
 
+    # Tests that apply_plan with empty changes returns zero counts.
     def test_apply_empty_changes_returns_zero(self):
         client = MagicMock()
         backend = MagicMock()
@@ -109,6 +113,7 @@ class TestApplyPlanErrorPath:
 class TestApplyChange:
     """Test _apply_change dispatches correctly to APIM REST API."""
 
+    # Tests that _apply_change for CREATE calls client.put with correct path.
     def test_create_calls_put(self):
         client = MagicMock()
         change = {
@@ -121,6 +126,7 @@ class TestApplyChange:
         call_args = client.put.call_args
         assert "/namedValues/a" == call_args[0][0]
 
+    # Tests that _apply_change for UPDATE calls client.put with correct path.
     def test_update_calls_put(self):
         client = MagicMock()
         change = {
@@ -132,6 +138,7 @@ class TestApplyChange:
         client.put.assert_called_once()
         assert "/backends/b1" == client.put.call_args[0][0]
 
+    # Tests that _apply_change for DELETE calls client.delete with correct path.
     def test_delete_calls_delete(self):
         client = MagicMock()
         change = {
@@ -142,6 +149,7 @@ class TestApplyChange:
         _apply_change(change, client)
         client.delete.assert_called_once_with("/tags/t1")
 
+    # Tests that _apply_change for API also pushes all operations.
     def test_create_api_also_pushes_operations(self):
         client = MagicMock()
         change = {
@@ -166,6 +174,7 @@ class TestApplyChange:
 class TestUpdateState:
     """Test _update_state correctly modifies the state dict."""
 
+    # Tests that _update_state for CREATE adds artifact to state.
     def test_create_adds_to_state(self):
         state = {"artifacts": {}}
         change = {
@@ -177,6 +186,7 @@ class TestUpdateState:
         assert "nv:a" in state["artifacts"]
         assert state["artifacts"]["nv:a"]["hash"] == "sha256:x"
 
+    # Tests that _update_state for UPDATE replaces artifact in state.
     def test_update_replaces_in_state(self):
         state = {"artifacts": {
             "nv:a": {"type": "named_value", "id": "a", "hash": "sha256:old",
@@ -190,6 +200,7 @@ class TestUpdateState:
         _update_state(change, state)
         assert state["artifacts"]["nv:a"]["hash"] == "sha256:new"
 
+    # Tests that _update_state for DELETE removes artifact from state.
     def test_delete_removes_from_state(self):
         state = {"artifacts": {
             "nv:a": {"type": "named_value", "id": "a", "hash": "sha256:x",
@@ -203,6 +214,7 @@ class TestUpdateState:
 class TestApplyPlanSuccess:
     """Test apply_plan happy path with state updates and backend writes."""
 
+    # Tests that apply_plan successfully applies changes and updates state.
     def test_successful_apply_updates_state(self):
         client = MagicMock()
         backend = MagicMock()
@@ -229,6 +241,7 @@ class TestApplyPlanSuccess:
         # backend.write should be called: once per change + once for last_applied
         assert backend.write.call_count == 2
 
+    # Tests that apply_plan successfully deletes artifact and removes from state.
     def test_delete_removes_from_state(self):
         client = MagicMock()
         backend = MagicMock()
@@ -259,6 +272,7 @@ class TestApplyPlanSuccess:
 class TestApplyForce:
     """Test apply_force pushes all local artifacts."""
 
+    # Tests that apply_force reads and pushes all local artifacts.
     def test_force_reads_and_pushes_all(self, tmp_path):
         nv_dir = tmp_path / "namedValues"
         nv_dir.mkdir()
@@ -277,6 +291,7 @@ class TestApplyForce:
         assert "named_value:k1" in state["artifacts"]
         client.put.assert_called()
 
+    # Tests that apply_force continues processing on error and returns error list.
     def test_force_continues_on_error(self, tmp_path):
         nv_dir = tmp_path / "namedValues"
         nv_dir.mkdir()
@@ -297,6 +312,7 @@ class TestApplyForce:
         assert total == 2
         assert len(errors) == 1
 
+    # Tests that apply_force respects only filter to process specific artifact types.
     def test_force_only_filter(self, tmp_path):
         nv_dir = tmp_path / "namedValues"
         nv_dir.mkdir()

@@ -6,6 +6,7 @@ from apy_ops.extractor import extract
 
 
 class TestExtractErrorHandling:
+    # Tests that extract continues on read_live error and prints ERROR.
     def test_read_live_exception_continues(self, capsys):
         """When read_live raises, extract should print ERROR and continue to next module."""
         client = MagicMock()
@@ -31,6 +32,7 @@ class TestExtractErrorHandling:
         assert "tag:t1" in result
         ok_mod.write_local.assert_called_once()
 
+    # Tests that extract updates state file when backend is provided.
     def test_extract_update_state(self):
         """When backend and state are provided, extract should update state."""
         client = MagicMock()
@@ -54,6 +56,7 @@ class TestExtractErrorHandling:
         assert state["last_applied"] is not None
         backend.write.assert_called_once_with(state)
 
+    # Tests that extract does not write state when backend is not provided.
     def test_extract_without_state_does_not_write(self):
         """When no backend/state provided, extract should not call backend.write."""
         client = MagicMock()
@@ -65,6 +68,7 @@ class TestExtractErrorHandling:
         with patch("apy_ops.extractor.DEPLOY_ORDER", [mod]):
             extract(client, "/tmp/out")
 
+    # Tests that extract respects only filter to process specific artifact types.
     def test_extract_only_filter(self):
         """Extract with only filter should skip non-matching modules."""
         client = MagicMock()
