@@ -84,6 +84,13 @@ def _require_apim_args(args: argparse.Namespace) -> None:
 def cmd_init(args: argparse.Namespace) -> None:
     """Initialize an empty state file."""
     backend = get_backend(args)
+
+    # Check if state file already exists
+    existing_state = backend.read()
+    if existing_state and not args.force:
+        print("Error: State file already exists. Use --force to overwrite.", file=sys.stderr)
+        sys.exit(1)
+
     sub_id = getattr(args, "subscription_id", None) or ""
     rg = getattr(args, "resource_group", None) or ""
     svc = getattr(args, "service_name", None) or ""
@@ -255,6 +262,8 @@ def main() -> None:
     p_init.add_argument("--subscription-id", default="", help="Azure subscription ID")
     p_init.add_argument("--resource-group", default="", help="Resource group name")
     p_init.add_argument("--service-name", default="", help="APIM service name")
+    p_init.add_argument("--force", action="store_true",
+                        help="Overwrite existing state file (use with caution)")
 
     # plan
     p_plan = subparsers.add_parser("plan", help="Show what would change")

@@ -145,6 +145,7 @@ class TestCmdInit:
             subscription_id="sub-1", resource_group="rg-1", service_name="apim-1",
             backend_storage_account=None, backend_container=None, backend_blob=None,
             client_id=None, client_secret=None, tenant_id=None,
+            force=False,
         )
         cmd_init(args)
         assert os.path.isfile(state_file)
@@ -160,11 +161,48 @@ class TestCmdInit:
             subscription_id=None, resource_group=None, service_name=None,
             backend_storage_account=None, backend_container=None, backend_blob=None,
             client_id=None, client_secret=None, tenant_id=None,
+            force=False,
         )
         cmd_init(args)
         with open(state_file) as f:
             data = json.load(f)
         assert data["subscription_id"] == ""
+
+    def test_cmd_init_reinit_without_force_exits_1(self, tmp_path):
+        """Calling init on existing state without --force should exit 1."""
+        state_file = str(tmp_path / "state.json")
+        rc, out, err = run_cli("init", "--backend", "local", "--state-file", state_file)
+        assert rc == 0
+        # Try again without --force
+        rc, out, err = run_cli("init", "--backend", "local", "--state-file", state_file)
+        assert rc == 1
+        assert "already exists" in err
+
+    def test_cmd_init_reinit_with_force_succeeds(self, tmp_path):
+        """Calling init with --force should overwrite existing state."""
+        state_file = str(tmp_path / "state.json")
+        # First init
+        rc, out, err = run_cli(
+            "init", "--backend", "local", "--state-file", state_file,
+            "--subscription-id", "sub-1", "--resource-group", "rg-1",
+            "--service-name", "apim-1",
+        )
+        assert rc == 0
+        with open(state_file) as f:
+            old_state = json.load(f)
+        old_time = old_state.get("last_applied")
+
+        # Re-init with --force and different values
+        rc, out, err = run_cli(
+            "init", "--backend", "local", "--state-file", state_file,
+            "--subscription-id", "sub-2", "--resource-group", "rg-2",
+            "--service-name", "apim-2", "--force",
+        )
+        assert rc == 0
+        with open(state_file) as f:
+            new_state = json.load(f)
+        assert new_state["subscription_id"] == "sub-2"
+        assert new_state["artifacts"] == {}
 
 
 class TestCmdForceUnlock:
