@@ -66,12 +66,30 @@ def _find_spec_file(api_dir: str) -> str | None:
 
 
 def _read_operations(api_dir: str) -> dict[str, dict[str, Any]]:
-    """Read operations from separate files in the API directory."""
+    """Read operations from separate files in the API directory.
+
+    Handles the old format (operation.json files directly in api_dir)
+    and new format (operations/{opId}/ directories with policy.xml).
+    """
     ops = {}
+    # Check for new format: operations/ subdirectory
+    ops_dir = os.path.join(api_dir, "operations")
+    if os.path.isdir(ops_dir):
+        for entry in sorted(os.listdir(ops_dir)):
+            op_path = os.path.join(ops_dir, entry)
+            if not os.path.isdir(op_path):
+                continue
+            # Operation ID is the directory name
+            # Operation properties are not stored locally in this format
+            # (they come from the spec or are fetched live)
+            ops[entry] = {"id": f"/apis/{os.path.basename(api_dir)}/operations/{entry}"}
+        return ops
+
+    # Old format: JSON files directly in api_dir
     for entry in sorted(os.listdir(api_dir)):
         if not entry.endswith(".json"):
             continue
-        if entry in ("apiInformation.json", "configuration.json"):
+        if entry in ("apiInformation.json", "configuration.json", "tags.json"):
             continue
         if entry.startswith("specification."):
             continue
@@ -79,6 +97,9 @@ def _read_operations(api_dir: str) -> dict[str, dict[str, Any]]:
         if not os.path.isfile(path):
             continue
         op_props = read_json(path)
+        # Skip non-dict JSON files (e.g., tags.json which is a list)
+        if not isinstance(op_props, dict):
+            continue
         op_props = resolve_refs(op_props, api_dir)
         op_id = extract_id_from_path(op_props.get("id", entry.replace(".json", "")))
         ops[op_id] = op_props

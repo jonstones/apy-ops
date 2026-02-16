@@ -103,9 +103,16 @@ def cmd_plan(args: argparse.Namespace) -> None:
         print("Error: State file not found. Run 'init' first.", file=sys.stderr)
         sys.exit(1)
 
+    _resolve_apim_args(args, state)
+
     only = args.only.split(",") if args.only else None
     source_dir = args.source_dir or DEFAULT_SOURCE_DIR
-    plan = generate_plan(source_dir, state, only=only)
+    plan = generate_plan(
+        source_dir, state, only=only,
+        subscription_id=args.subscription_id,
+        resource_group=args.resource_group,
+        service_name=args.service_name,
+    )
     print_plan(plan, verbose=args.verbose)
 
     if args.out:
@@ -124,6 +131,14 @@ def cmd_apply(args: argparse.Namespace) -> None:
     # Load saved plan if provided
     if args.plan:
         plan = load_plan(args.plan)
+        # Extract APIM target from plan
+        apim = plan.get("apim", {})
+        if apim.get("subscription_id") != "NOT-SET":
+            args.subscription_id = apim.get("subscription_id")
+        if apim.get("resource_group") != "NOT-SET":
+            args.resource_group = apim.get("resource_group")
+        if apim.get("service_name") != "NOT-SET":
+            args.service_name = apim.get("service_name")
     else:
         state = backend.read()
         if state is None:
@@ -150,7 +165,12 @@ def cmd_apply(args: argparse.Namespace) -> None:
                 backend.unlock()
             sys.exit(1 if error else 0)
 
-        plan = generate_plan(source_dir, state, only=only)
+        plan = generate_plan(
+            source_dir, state, only=only,
+            subscription_id=args.subscription_id,
+            resource_group=args.resource_group,
+            service_name=args.service_name,
+        )
 
     # Check if there are changes
     if plan["summary"]["create"] == 0 and plan["summary"]["update"] == 0 and plan["summary"]["delete"] == 0:
@@ -166,12 +186,9 @@ def cmd_apply(args: argparse.Namespace) -> None:
             print("Apply cancelled.")
             sys.exit(0)
 
-    # Resolve APIM args from state if not already done
-    if not args.plan:
-        pass  # already resolved above
-    else:
-        state = backend.read()
-        _resolve_apim_args(args, state)
+    # Resolve APIM args if not already set from plan
+    state = backend.read() if not args.plan else {}
+    _resolve_apim_args(args, state if state else None)
     _require_apim_args(args)
 
     client = ApimClient(

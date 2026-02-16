@@ -15,13 +15,23 @@ COLORS = {CREATE: "\033[32m", UPDATE: "\033[33m", DELETE: "\033[31m", NOOP: "\03
 RESET = "\033[0m"
 
 
-def generate_plan(source_dir: str, state: dict[str, Any], only: list[str] | None = None) -> dict[str, Any]:
+def generate_plan(
+    source_dir: str,
+    state: dict[str, Any],
+    only: list[str] | None = None,
+    subscription_id: str | None = None,
+    resource_group: str | None = None,
+    service_name: str | None = None,
+) -> dict[str, Any]:
     """Generate a plan by diffing local artifacts against state.
 
     Args:
         source_dir: Path to APIOps directory
         state: State dict (from backend.read())
         only: Optional list of artifact type names to include
+        subscription_id: Azure subscription ID (from args/env/state)
+        resource_group: Resource group name (from args/env/state)
+        service_name: APIM service name (from args/env/state)
 
     Returns:
         Plan dict with changes list and summary
@@ -55,6 +65,11 @@ def generate_plan(source_dir: str, state: dict[str, Any], only: list[str] | None
     plan: dict[str, Any] = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "source_dir": source_dir,
+        "apim": {
+            "subscription_id": subscription_id or "NOT-SET",
+            "resource_group": resource_group or "NOT-SET",
+            "service_name": service_name or "NOT-SET",
+        },
         "summary": {
             "create": len(creates),
             "update": len(updates),
@@ -86,6 +101,13 @@ def print_plan(plan: dict[str, Any], verbose: bool = False) -> None:
     """Print plan to console in Terraform-style format."""
     summary = plan["summary"]
     changes = plan["changes"]
+    apim = plan.get("apim", {})
+
+    # Print APIM target
+    print("\nAPIM Target:")
+    print(f"  Subscription: {apim.get('subscription_id', 'NOT-SET')}")
+    print(f"  Resource Group: {apim.get('resource_group', 'NOT-SET')}")
+    print(f"  Service: {apim.get('service_name', 'NOT-SET')}")
 
     print(f"\nPlan: {summary['create']} to create, {summary['update']} to update, "
           f"{summary['delete']} to delete, {summary['noop']} unchanged.\n")
